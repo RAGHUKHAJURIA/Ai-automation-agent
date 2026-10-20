@@ -1,0 +1,12 @@
+{
+  "name": "@personal-agent/agent-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }, "./task-state": { "types": "./dist/task-state.d.ts", "import": "./dist/task-state.js" } },
+  "dependencies": { "@personal-agent/contracts": "workspace:*", "zod": "4.6.5" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

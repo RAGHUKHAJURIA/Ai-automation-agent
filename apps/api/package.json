@@ -1,0 +1,35 @@
+{
+  "name": "@personal-agent/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=../../.env --import tsx src/server.ts",
+    "dev:worker": "node --env-file=../../.env --import tsx src/worker.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "auth:create-owner": "node --env-file=../../.env --import tsx src/scripts/create-owner.ts",
+    "db:migrate": "node --env-file=../../.env --import tsx src/scripts/migrate.ts",
+    "test:ai:live": "node --env-file=../../.env --import tsx src/scripts/live-ai-smoke.ts"
+  },
+  "dependencies": {
+    "@personal-agent/contracts": "workspace:*",
+    "@personal-agent/agent-core": "workspace:*",
+    "@personal-agent/policy": "workspace:*",
+    "@personal-agent/tools": "workspace:*",
+    "@personal-agent/config": "workspace:*",
+    "cors": "2.8.6",
+    "argon2": "0.45.1",
+    "bullmq": "5.81.5",
+    "helmet": "8.3.0",
+    "jose": "6.2.12",
+    "openai": "7.17.0",
+    "zod": "4.6.5",
+    "express": "5.3.0",
+    "mongodb": "7.7.0",
+    "redis": "6.3.0"
+  },
+  "devDependencies": {
+    "tsx": "4.23.15"
+  }
+}

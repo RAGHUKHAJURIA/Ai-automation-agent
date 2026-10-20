@@ -1,0 +1,11 @@
+{
+  "name": "@personal-agent/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reserved TypeScript workspace for a future Electron desktop worker. Electron is not initialized in Phase 0.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

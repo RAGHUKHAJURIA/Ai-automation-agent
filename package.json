@@ -1,0 +1,48 @@
+{
+  "name": "personal-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.25.0",
+  "engines": {
+    "node": ">=22.13.0 <23 || >=24.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm build && concurrently --kill-others --names api,web \"pnpm --filter @personal-agent/api dev\" \"pnpm --filter @personal-agent/web dev\"",
+    "dev:api": "pnpm build && pnpm --filter @personal-agent/api dev",
+    "dev:web": "pnpm --filter @personal-agent/config build && pnpm --filter @personal-agent/web dev",
+    "dev:worker": "pnpm build && pnpm --filter @personal-agent/api dev:worker",
+    "auth:create-owner": "pnpm build && pnpm --filter @personal-agent/api auth:create-owner",
+    "db:migrate": "pnpm --filter @personal-agent/config build && pnpm --filter @personal-agent/api db:migrate",
+    "secrets:generate-dev": "node scripts/generate-dev-secrets.mjs",
+    "build": "pnpm --recursive --workspace-concurrency=1 --if-present build",
+    "typecheck": "pnpm --recursive --workspace-concurrency=1 --if-present build && pnpm --recursive --workspace-concurrency=1 --if-present typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm build && vitest run",
+    "test:unit": "pnpm build && vitest run",
+    "test:integration": "pnpm build && vitest run --config vitest.integration.config.ts",
+    "test:ai:live": "pnpm build && pnpm --filter @personal-agent/api test:ai:live",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test",
+    "infra:up": "docker compose -f infra/compose.dev.yml up -d",
+    "infra:down": "docker compose -f infra/compose.dev.yml down",
+    "infra:logs": "docker compose -f infra/compose.dev.yml logs -f",
+    "infra:config": "docker compose -f infra/compose.dev.yml config"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/cors": "2.8.19",
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/supertest": "7.2.1",
+    "concurrently": "10.0.6",
+    "eslint": "10.13.0",
+    "prettier": "3.9.10",
+    "supertest": "7.3.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.0",
+    "vitest": "5.0.5"
+  }
+}
