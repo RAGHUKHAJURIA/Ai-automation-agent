@@ -1,9 +1,9 @@
-import { Router } from 'express';
+import { Router, type Router as ExpressRouter } from 'express';
 import { checkMongo } from '../infrastructure/mongodb.js';
 import { checkRedis } from '../infrastructure/redis.js';
 import { isTaskQueueReady } from '../phase1/task-system.js';
 
-export const healthRouter = Router();
+export const healthRouter: ExpressRouter = Router();
 
 healthRouter.get('/live', (_request, response) => {
   response.status(200).json({ status: 'ok', service: 'api' });

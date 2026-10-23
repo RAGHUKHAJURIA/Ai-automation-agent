@@ -3,7 +3,7 @@ import { createModelProvider } from '../phase2/openai-provider.js';
 
 async function main(): Promise<void> {
   const config = parseServerConfig(process.env);
-  const provider = createModelProvider(config);
+  const provider = createModelProvider({ ...(config.AI_PROVIDER ? { AI_PROVIDER: config.AI_PROVIDER } : {}), ...(config.AI_API_KEY ? { AI_API_KEY: config.AI_API_KEY } : {}) });
   if (!provider || !config.AI_MODEL) throw new Error('Live AI smoke requires AI_PROVIDER=openai, AI_API_KEY, and AI_MODEL.');
   const response = await provider.generate({
     taskId: 'live-smoke', iterationId: 'live-smoke-1', model: config.AI_MODEL,

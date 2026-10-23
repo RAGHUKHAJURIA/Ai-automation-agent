@@ -1,6 +1,10 @@
 # Requirements inventory
 
-High-level traceability derived from `project_detail.md`. Product requirements remain active even when their implementation is in a later phase.
+## Phase 5 traceability update (2026-10-23)
+
+The Windows helper, local app approval, typed tool descriptors, process/window identity checks, foreground guard, UIA control references, literal text, fixture-only click, scoped screenshot, takeover latch, cancellation, and persistent emergency stop have source and controlled fixture evidence. VS Code workspace/known-file opening has direct Windows evidence. Production owner-command-to-worker dispatch, exact consequential desktop approval, editor save verification, second real application workflow, visual coordinate fallback, cross-monitor behavior, and complete crash/restart reconciliation remain open requirements. No Phase 5 exit criterion is waived by the fixture result.
+
+High-level traceability derived from `AGENTS.md`. Product requirements remain active even when their implementation is in a later phase.
 
 ## Phase 2 orchestration
 
@@ -21,8 +25,9 @@ High-level traceability derived from `project_detail.md`. Product requirements r
 | REQ-AUTH-001 | Private owner authentication uses strong password hashing, short-lived JWTs, rotating sessions, and owner-scoped access | Sections 3, 4, 5 | 1 | IMPLEMENTED_UNVERIFIED | Integration login/refresh/revocation/ownership checks |
 | REQ-TASK-001 | Commands become durable, deduplicated tasks with enforced transitions and recoverable queue dispatch | Sections 8, 9, 23 | 1 | IMPLEMENTED_UNVERIFIED | Mongo transaction, outbox, BullMQ and restart checks |
 | REQ-POLICY-001 | Deterministic policy and approval controls authorize tool actions | Sections 5, 7, 8, 10 | 1 | IMPLEMENTED_UNVERIFIED | Allow/deny/default-deny/approval tests |
-| REQ-DESKTOP-001 | Selected desktop supports a paired, revocable worker and scoped files | Sections 3.4, 5, 11 | 3 | NOT_STARTED | Pair, execute, revoke, reconnect tests on approved OS |
-| REQ-BROWSER-001 | Browser workflows use isolated supported automation and verify results | Sections 5, 12 | 4 | NOT_STARTED | Controlled fixture workflows and failure cases |
+| REQ-DESKTOP-001 | Selected desktop supports a paired, revocable worker and scoped files | Sections 3.4, 5, 11 | 3 | IN_PROGRESS | Pair, execute, revoke, reconnect tests on approved OS; require local roots, worker dispatch, and target-machine verification |
+| REQ-DESKTOP-002 | Local permissions, authenticated worker transport, and emergency stop constrain desktop execution | Sections 5, 9, 12 | 3 | IN_PROGRESS | Target-machine tests for owner/device binding, root/operation checks, cancellation, durable local stop, and restart |
+| REQ-BROWSER-001 | Browser workflows use isolated supported automation and verify results | Sections 5, 12 | 4 | IMPLEMENTED_UNVERIFIED | Direct fixture workflows pass for selected actions; end-to-end dispatch and exact submission approvals remain incomplete |
 | REQ-MSG-001 | One eligible owner-approved remote messaging route authenticates events | Sections 3, 5, 23 | 6 | NOT_STARTED | Controlled end-to-end send/replay tests |
 | REQ-SERVICE-001 | Owner-selected email, calendar, and storage integrations use scoped authorization | Sections 3, 18, 21 | 7 | NOT_STARTED | Connector, revoke, and side-effect verification |
 | REQ-JOBS-001 | Job application workflows use verified owner facts and evidence-backed submission tracking | Section 19 | 8 | NOT_STARTED | Fixture flow, truthfulness and duplicate controls |

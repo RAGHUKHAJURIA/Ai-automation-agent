@@ -1,5 +1,9 @@
 # Decisions pending
 
+## Phase 5 decisions (2026-10-23)
+
+Windows is the tested development OS (build 26300) and remains the provisional production target until the owner confirms the target computer/version. The owner also needs to approve actual applications and workspace roots through the local desktop UI. The existing decision about whether desktop screenshots may leave the device remains open; Phase 5 keeps image bytes local and does not enable cloud vision.
+
 These owner decisions are not prerequisites for Phase 0 and are intentionally left open.
 
 | Decision | Current state | Needed for |

@@ -35,6 +35,9 @@ export const taskSchema = z.object({
 });
 export type Task = z.infer<typeof taskSchema>;
 
+export const policyOutcomes = ['ALLOW', 'REQUIRE_APPROVAL', 'DENY', 'REQUIRE_INPUT'] as const;
+export const policyOutcomeSchema = z.enum(policyOutcomes);
+
 export const approvalDecisionSchema = z.enum(['APPROVED', 'DENIED']);
 export const policyRecordSchema = z.object({
   policyId: z.string().uuid(), ownerId: z.string().uuid(), name: z.string().min(1), description: z.string().optional(),
@@ -59,6 +62,52 @@ export const taskJobSchema = z.object({
 }).strict();
 export type TaskJob = z.infer<typeof taskJobSchema>;
 
-export const policyOutcomes = ['ALLOW', 'REQUIRE_APPROVAL', 'DENY', 'REQUIRE_INPUT'] as const;
-export const policyOutcomeSchema = z.enum(policyOutcomes);
 export type PolicyOutcome = z.infer<typeof policyOutcomeSchema>;
+
+export const workerProtocolVersion = 1;
+export const workerMessageTypes = [
+  'HELLO', 'AUTH_CHALLENGE', 'AUTH_RESPONSE', 'AUTH_OK', 'CAPABILITIES', 'HEARTBEAT',
+  'EXECUTE_TOOL', 'TOOL_STARTED', 'TOOL_RESULT', 'CANCEL_TASK', 'REVOKE', 'SESSION_STATE', 'ERROR',
+] as const;
+export const workerEnvelopeSchema = z.object({
+  protocolVersion: z.literal(workerProtocolVersion),
+  messageId: z.string().uuid(),
+  messageType: z.enum(workerMessageTypes),
+  sentAt: z.string().datetime(),
+  payload: z.unknown(),
+}).strict();
+export const workerHelloSchema = z.object({
+  deviceId: z.string().uuid().nullable(),
+  protocolVersion: z.literal(workerProtocolVersion),
+  workerVersion: z.string().min(1).max(64),
+  desktopAppVersion: z.string().min(1).max(64),
+  platform: z.enum(['win32', 'darwin', 'linux']),
+  architecture: z.string().min(1).max(32),
+  clientNonce: z.string().regex(/^[a-f0-9]{64}$/),
+}).strict();
+export const workerChallengeSchema = z.object({
+  connectionId: z.string().uuid(),
+  challengeNonce: z.string().regex(/^[a-f0-9]{64}$/),
+  expiresAt: z.string().datetime(),
+}).strict();
+export const workerAuthResponseSchema = z.object({
+  deviceId: z.string().uuid(),
+  connectionId: z.string().uuid(),
+  protocolVersion: z.literal(workerProtocolVersion),
+  clientNonce: z.string().regex(/^[a-f0-9]{64}$/),
+  signature: z.string().min(64).max(256),
+}).strict();
+export const desktopCapabilitySchema = z.object({
+  name: z.enum(['files.search', 'files.read_text', 'files.write_text', 'files.move', 'browser.open', 'browser.inspect', 'browser.read', 'browser.fill', 'browser.check', 'browser.select', 'browser.click', 'browser.upload', 'browser.download', 'browser.list_pages', 'browser.switch_page', 'browser.close_page', 'desktop.list_windows', 'desktop.launch_app', 'desktop.inspect_window', 'desktop.focus_window', 'desktop.type_text', 'desktop.click_control', 'desktop.press_key', 'desktop.hotkey', 'desktop.capture_window']),
+  version: z.literal(1),
+  enabled: z.boolean(),
+  roots: z.array(z.object({ rootId: z.string().regex(/^root_[a-f0-9]{32}$/), displayLabel: z.string().min(1).max(64), operations: z.array(z.enum(['SEARCH', 'READ', 'WRITE', 'MOVE_IN', 'MOVE_OUT'])) }).strict()).max(100),
+}).strict();
+export const executeFileToolSchema = z.object({
+  ownerId: z.string().uuid(), deviceId: z.string().uuid(), taskId: z.string().uuid(), toolCallId: z.string().uuid(),
+  toolName: z.enum(['files.search', 'files.read_text', 'files.write_text', 'files.move', 'browser.open', 'browser.inspect', 'browser.read', 'browser.fill', 'browser.check', 'browser.select', 'browser.click', 'browser.upload', 'browser.download', 'browser.list_pages', 'browser.switch_page', 'browser.close_page', 'desktop.list_windows', 'desktop.launch_app', 'desktop.inspect_window', 'desktop.focus_window', 'desktop.type_text', 'desktop.click_control', 'desktop.press_key', 'desktop.hotkey', 'desktop.capture_window']), toolVersion: z.literal(1),
+  deadline: z.string().datetime(), leaseExpiresAt: z.string().datetime(), leaseId: z.string().uuid(), fencingToken: z.number().int().positive(), idempotencyKey: z.string().min(16).max(256),
+  arguments: z.unknown(),
+}).strict();
+export type WorkerEnvelope = z.infer<typeof workerEnvelopeSchema>;
+export type ExecuteFileTool = z.infer<typeof executeFileToolSchema>;

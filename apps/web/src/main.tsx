@@ -7,6 +7,8 @@ const { VITE_API_BASE_URL } = parseWebConfig(import.meta.env);
 
 type Task = { taskId: string; goal: string; status: string; createdAt: string; updatedAt: string; outcomeSummary?: string | null; waitingQuestion?: string; currentCheckpoint?: string | null; agentCheckpoint?: { progressSummary?: string; iteration?: number; modelCalls?: number; toolCalls?: number } };
 type Approval = { approvalId: string; taskId: string; actionSummary: string; expiresAt: string };
+type Device = { deviceId: string; displayName: string; platform: string; architecture: string; workerVersion: string; connectionState: 'ONLINE' | 'OFFLINE' | 'REVOKED'; lastHeartbeatAt?: string | null; capabilities: Array<{ name: string; enabled: boolean }> };
+type PairingRequest = { pairingRequestId: string; code: string; expiresAt: string };
 let accessToken: string | undefined;
 let refreshPromise: Promise<boolean> | undefined;
 const apiBase = VITE_API_BASE_URL.replace(/\/$/, '');
@@ -42,6 +44,8 @@ function App() {
   const [password, setPassword] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [pairingRequest, setPairingRequest] = useState<PairingRequest | null>(null);
   const [command, setCommand] = useState('');
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('Restoring session…');
@@ -69,14 +73,35 @@ function App() {
     setApprovals(result.approvals);
   }, []);
 
+  const loadDevices = useCallback(async () => {
+    const response = await apiRequest('/api/devices');
+    if (!response.ok) return;
+    const result = (await response.json()) as { devices: Device[] };
+    setDevices(result.devices);
+  }, []);
+
   useEffect(() => { void loadSession(); }, [loadSession]);
   useEffect(() => {
     if (!owner) return;
     void loadTasks();
     void loadApprovals();
-    const timer = window.setInterval(() => { void loadTasks(); void loadApprovals(); }, 2_000);
+    void loadDevices();
+    const timer = window.setInterval(() => { void loadTasks(); void loadApprovals(); void loadDevices(); }, 2_000);
     return () => window.clearInterval(timer);
-  }, [owner, loadTasks, loadApprovals]);
+  }, [owner, loadTasks, loadApprovals, loadDevices]);
+
+  async function createPairing() {
+    const response = await apiRequest('/api/devices/pairing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    if (!response.ok) { setMessage('Pairing request could not be created.'); return; }
+    setPairingRequest((await response.json()) as PairingRequest);
+    setMessage('Pairing code created. Enter it in the desktop app before it expires.');
+  }
+
+  async function revokeDevice(deviceId: string) {
+    const response = await apiRequest(`/api/devices/${deviceId}/revoke`, { method: 'POST' });
+    setMessage(response.ok ? 'Device revoked.' : 'Device could not be revoked.');
+    await loadDevices();
+  }
 
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -160,6 +185,15 @@ function App() {
         <button type="submit">Submit command</button>
       </form>
       <p role="status">{message}</p>
+      <h2>Paired computers</h2>
+      <button type="button" onClick={() => void createPairing()}>Create pairing request</button>
+      {pairingRequest && <section className="pairing-code"><p>One-time code (shown only now): <strong>{pairingRequest.code}</strong></p><p>Request ID: <code>{pairingRequest.pairingRequestId}</code></p><p>Expires {new Date(pairingRequest.expiresAt).toLocaleString()}</p><button type="button" onClick={() => setPairingRequest(null)}>Hide code</button></section>}
+      {devices.length === 0 ? <p>No paired computers.</p> : <ul>{devices.map((device) => <li key={device.deviceId}>
+        <h3>{device.displayName} · {device.connectionState}</h3><p>{device.platform} {device.architecture} · Worker {device.workerVersion} · {device.deviceId}</p>
+        <p>Last heartbeat: {device.lastHeartbeatAt ? new Date(device.lastHeartbeatAt).toLocaleString() : 'Not received'}</p>
+        <p>{device.capabilities.filter((capability) => capability.enabled).map((capability) => capability.name).join(', ') || 'No enabled file capabilities'}</p>
+        {device.connectionState !== 'REVOKED' && <button type="button" onClick={() => void revokeDevice(device.deviceId)}>Revoke device</button>}
+      </li>)}</ul>}
       <h2>Recent tasks</h2>
       {tasks.length === 0 ? <p>No tasks yet.</p> : <ul>{tasks.map((task) => (
         <li key={task.taskId}>

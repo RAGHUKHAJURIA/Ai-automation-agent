@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'" />
+    <title>Personal Agent Desktop</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main>
+      <header><div><p class="eyebrow">PERSONAL AGENT</p><h1>Desktop worker</h1></div><span id="status" class="badge">Loading</span></header>
+      <section id="stop-panel" class="safety" hidden><strong>Emergency stop is active</strong><p>This computer will reject new remote file operations until you reset the stop locally.</p><button id="reset-stop" class="danger">Reset emergency stop</button></section>
+      <section class="card">
+        <h2>Device</h2><dl><dt>Name</dt><dd id="device-name">—</dd><dt>Device ID</dt><dd id="device-id">Not paired</dd><dt>Backend</dt><dd id="backend">—</dd><dt>Local worker state</dt><dd id="worker-state">—</dd><dt>Browser session</dt><dd id="browser-state">STOPPED</dd><dt>Current browser origin</dt><dd id="browser-domain">None</dd></dl>
+        <div class="actions"><button id="focus-browser" class="secondary">Focus browser</button><button id="reset-browser-profile" class="secondary">Reset browser profile</button><button id="take-control" class="danger">Take Control</button><button id="pause">Pause</button><button id="resume">Resume</button><button id="emergency-stop" class="danger">Emergency stop</button></div>
+      </section>
+      <section class="card">
+        <h2>Pair this computer</h2><p class="muted">Create a pairing request in the authenticated web dashboard first. Pairing requires confirmation on this computer.</p>
+        <form id="pair-form"><label>Backend URL<input name="backendUrl" type="url" placeholder="https://agent.example" required /></label><label>Pairing request ID<input name="pairingRequestId" autocomplete="off" required /></label><label>One-time pairing code<input name="pairingCode" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" autocomplete="off" required /></label><label>Device display name<input name="displayName" maxlength="64" value="My computer" required /></label><button type="submit">Review pairing</button></form>
+        <div id="pair-pending" hidden><p id="pair-summary"></p><button id="confirm-pairing">Confirm pairing locally</button><button id="cancel-pairing" class="secondary">Cancel</button></div>
+      </section>
+      <section class="card">
+        <div class="section-head"><div><h2>Approved applications</h2><p class="muted">Only applications selected and confirmed here may be launched or inspected.</p></div><button id="add-app">Add application</button></div>
+        <p id="helper-state">Windows helper: checking</p>
+        <div id="apps" class="roots"></div>
+      </section>
+      <section class="card">
+        <div class="section-head"><div><h2>Approved folders</h2><p class="muted">Folder permissions are enforced on this computer.</p></div><button id="add-folder">Add folder</button></div>
+        <div id="roots" class="roots"></div>
+      </section>
+      <footer>Private key material stays in OS-backed secure storage. File access is limited to folders explicitly approved here.</footer>
+      <p id="message" role="status" aria-live="polite"></p>
+    </main>
+    <script src="./renderer.js"></script>
+  </body>
+</html>

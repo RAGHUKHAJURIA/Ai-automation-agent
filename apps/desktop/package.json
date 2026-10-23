@@ -3,9 +3,28 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Reserved TypeScript workspace for a future Electron desktop worker. Electron is not initialized in Phase 0.",
+  "description": "Electron desktop worker for locally authorized file and browser operations.",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "dev": "electron .",
+    "build": "tsc -p tsconfig.json && node scripts/copy-renderer.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run test",
+    "test:e2e": "playwright test --config playwright.config.ts"
+  },
+  "main": "dist/main/index.js",
+  "dependencies": {
+    "@personal-agent/contracts": "workspace:*",
+    "@personal-agent/policy": "workspace:*",
+    "electron": "45.0.0",
+    "playwright": "1.64.1",
+    "ws": "8.22.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "22.20.5",
+    "@types/ws": "8.18.2",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
   }
 }

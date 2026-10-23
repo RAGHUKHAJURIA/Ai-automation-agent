@@ -1,16 +1,20 @@
 # Personal Agent
 
+## Phase 5 Windows desktop status (2026-10-23)
+
+The paired Electron worker now contains a Windows UIA/pywinauto adapter behind locally approved application IDs and the existing authenticated tool protocol. A synthetic WinForms window was controlled through the real TypeScript service and Python helper. VS Code 1.140.0 opened a new window on a synthetic workspace and known file, but editor typing/saving was not completed. Windows Notepad's packaged executable differs from its System32 launcher, so the existing owner document was not targeted. Phase 5 remains **IN_PROGRESS**; see [desktop support](docs/DESKTOP_SUPPORT.md) and [test evidence](docs/TEST_EVIDENCE.md).
+
 Personal Agent is intended to become a personal automation system that accepts commands, operates authorized devices and connected services, verifies outcomes, and reports progress. It is broader than a chatbot or job application tool.
 
 ## Current status
 
-Phase 0 and Phase 1 remain **IMPLEMENTED_UNVERIFIED**. Phase 2 orchestration source is also **IMPLEMENTED_UNVERIFIED**: this environment lacks the dependency lock/install, a running Docker daemon, and configured provider credentials, so executable checks and live model behavior could not be confirmed. See [status](docs/STATUS.md) and [test evidence](docs/TEST_EVIDENCE.md).
+Phases 0–2 remain **IMPLEMENTED_UNVERIFIED**. Phase 3 is **IN_PROGRESS** and its worker is not connected to agent dispatch. Phase 4 has a source-level Playwright adapter for an isolated persistent Chromium profile and bounded page/form interactions, but no worker-to-agent browser dispatch, upload/download, exact submission approval, or runtime verification. Dependency installation and Docker remain blocked in this environment. See [status](docs/STATUS.md) and [test evidence](docs/TEST_EVIDENCE.md).
 
 ## Architecture
 
 Current: a React/Vite owner console calls an Express API with JWT authentication, durable owner-scoped commands/tasks, MongoDB persistence, Redis/BullMQ dispatch, a transactional outbox, audit history, deterministic policy, and harmless registered tools. When configured, the worker routes arbitrary commands through a bounded OpenAI Responses agent loop. Phase 2 is not runtime-verified here.
 
-Future: the API will become a control plane for a durable orchestrator and authorized integrations. Paired workers, desktop/browser control, messaging, and product workflows are not implemented. See [roadmap](docs/ROADMAP.md).
+Phase 3 source: an Electron desktop shell, Ed25519 pairing and outbound worker protocol, local folder grants, bounded file tools, and a durable idempotency ledger. Phase 4 source adds Playwright-backed Chromium sessions, structured inspection, and bounded form actions on desktop. These are not runtime-verified or connected to agent task dispatch. Messaging and product workflows remain future work. See [roadmap](docs/ROADMAP.md).
 
 ## Prerequisites
 
@@ -32,7 +36,7 @@ pnpm auth:create-owner
 pnpm dev
 ```
 
-Start the worker in a second terminal with `pnpm dev:worker`. If you prefer copying `.env.example`, fill both JWT secrets with independent random values before starting the API.
+Start the Phase 1 task worker in a second terminal with `pnpm dev:worker`. Start the desktop shell with `pnpm dev:desktop`. The desktop gateway is hosted in the API process, but the task worker does not yet dispatch file tools through it. If you prefer copying `.env.example`, fill both JWT secrets with independent random values before starting the API.
 
 To enable AI, set `AI_PROVIDER=openai`, a model identifier available to your provider project, and `AI_API_KEY` in the ignored `.env`. The project does not choose a default model or include a key. Run `pnpm test:ai:live` for a one-request harmless structured `math.add` tool-call smoke check when credentials are available.
 
@@ -42,7 +46,7 @@ On macOS/Linux, replace `Copy-Item .env.example .env` with `cp .env.example .env
 
 - `pnpm dev`, `pnpm dev:api`, `pnpm dev:web`, `pnpm dev:worker`: run the development applications/worker.
 - `pnpm auth:create-owner`, `pnpm db:migrate`, `pnpm secrets:generate-dev`: bootstrap the private owner, indexes, and local secrets.
-- `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:integration`: build and check current workspaces.
+- `pnpm build`, `pnpm build:desktop`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm test:desktop`, `pnpm test:integration`: build and check current workspaces.
 - `pnpm format`, `pnpm format:check`, `pnpm check`: format files, validate formatting, or run format/lint/type/test gates.
 - `pnpm infra:up`, `pnpm infra:down`, `pnpm infra:logs`, `pnpm infra:config`: manage local MongoDB and Redis.
 
@@ -50,14 +54,14 @@ On macOS/Linux, replace `Copy-Item .env.example .env` with `cp .env.example .env
 
 - `apps/api`: Express auth, command/task/approval API, Mongo access, outbox dispatcher, and worker entrypoint.
 - `apps/web`: React/Vite owner login, command, and task controls.
-- `apps/desktop`: TypeScript boundary only; Electron is not initialized.
+- `apps/desktop`: Electron main/preload/renderer, pairing, worker transport, local root grants and filesystem tools (source in progress; not runtime-verified).
 - `packages/config`: Zod server and browser-safe configuration schemas.
 - `packages/contracts`, `packages/agent-core`, `packages/tools`, `packages/policy`: shared task contracts/state, tool registry, harmless time tool, and deterministic policy.
 - `infra`: local development Compose services.
 - `docs`: requirements, status, operations, security, and decisions.
 
-The enforced state graph and recovery exception are documented in [Task State Machine](docs/TASK_STATE_MACHINE.md).
+The enforced state graph and recovery exception are documented in [Task State Machine](docs/TASK_STATE_MACHINE.md). Phase 4 includes a desktop-local Playwright Chromium adapter and local fixture tests; see [browser support](docs/BROWSER_SUPPORT.md). Browser support is not verified on arbitrary external sites, and consequential submissions are currently blocked.
 
 ## Security
 
-Never commit credentials. `.env` is local and ignored; `.env.example` contains no signing secrets. MongoDB and Redis ports bind to loopback and are intended only for development. The local policy allows only `system.get_time`; unsupported actions are not planned by an LLM. Production deployment, AI, browser/desktop control, messaging, email, calendar, and phone capabilities are not implemented.
+Never commit credentials. `.env` is local and ignored; `.env.example` contains no signing secrets. MongoDB and Redis ports bind to loopback and are intended only for development. Policy remains default-deny except explicit rules. Browser operations are partially implemented and fixture-tested, but full agent-to-worker integration and exact submission approvals are incomplete. Production deployment, messaging, email, calendar, and phone capabilities are not implemented.

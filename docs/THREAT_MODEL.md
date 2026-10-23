@@ -1,5 +1,19 @@
 # Initial threat model
 
+## Phase 5 Windows UI threats (2026-10-23)
+
+| Threat | Implemented mitigation | Remaining limit |
+|---|---|---|
+| Model supplies executable, shell, Python, or key syntax | Local approved-app IDs, typed launch modes, shell-free spawn, fixed helper operations, literal UIA text setter, fixed key/hotkey enums | Owner could locally approve an unsafe third-party app; terminal/interpreter names are explicitly rejected. |
+| Wrong-window typing or stale HWND reuse | HWND/PID/process-start/executable binding, foreground check immediately before input, snapshot/control IDs, five-second age and bounds checks | Windows can change focus in the narrow gap before OS input; no perfect kernel isolation is claimed. |
+| Window movement, DPI drift, stale screenshot | Geometry bound to observation; movement rejected; per-monitor DPI awareness requested; fixture tested at 120 DPI | Multiple monitors and live DPI changes were unavailable. No visual coordinate click is exposed. |
+| Prompt injection in desktop text | UI text remains untrusted task data; helper/app allowlist and policy cannot be changed by it | Cloud vision flow is not implemented; screenshot bytes remain local. |
+| Credential/password leakage | Password controls are marked secret and values omitted; no clipboard read or raw process command line is sent to the model | Generic private UI titles remain sensitive and are bounded to approved apps. |
+| Owner takeover, cancellation, stop | Local Take Control/pause, last-input tick check, task abort before actions, persistent emergency-stop latch, fresh observation after resume | Last-input tick is heuristic and can miss an input race; button/UI acceptance is unverified. |
+| Helper crash after input | Timeout/exit supervision; mutating ambiguous failures become `OUTCOME_UNKNOWN`; retries limited to one attempt | External side-effect reconciliation and task-level approval binding remain incomplete. |
+| Screenshot occlusion or retention | Capture only selected window bounds while target foreground; private local artifact and 24-hour pruning before later captures | Always-on-top overlays could appear in a bounded capture; unattended periodic pruning and authenticated retrieval are not implemented. |
+| UAC/secure desktop | Normal-user worker and unlocked input-desktop check; no elevation feature | Actual UAC boundary test was not performed. |
+
 Scope: Phase 0/1 source, local development processes, and local infrastructure. This is an initial inventory, not a completed security review.
 
 ## Assets
@@ -56,3 +70,22 @@ Before later phases: production HTTPS/key rotation and secret management; authen
 ## Verification limits
 
 No external port scan, dependency audit, runtime secret scan, or Docker connectivity test ran in this environment. See `TEST_EVIDENCE.md`.
+# Phase 3 additions (implementation in progress)
+
+| Threat | Current source mitigations | Remaining validation/gaps |
+|---|---|---|
+| Pairing-code guessing/replay or stolen code | Random short-lived request, salted scrypt hash, attempt bound, claim state, signed one-use challenge, local confirmation | Rate behavior and atomicity require MongoDB integration tests; no live pairing verification |
+| Stolen device key or stale/revoked device | Per-device Ed25519 key, encrypted safeStorage, backend public-key verification, revokedAt check | Rotation is not implemented; key compromise requires revocation and re-pairing |
+| Forged/replayed/oversized worker message | Strict v1 envelope schemas, 256 KiB frame cap, signed fresh challenge, heartbeat sequence, lease/deadline fields | Gateway currently lacks replay tracking for general message IDs; leases are not yet created by task dispatch |
+| Wrong owner/device execution | Worker compares authenticated owner/device IDs and local persisted identity | End-to-end task dispatch is not integrated; no actual execution acceptance |
+| Traversal, absolute path, prefix confusion, symlink/junction escape | Worker uses rootId + relative path; rejects path forms and link components; canonical containment checks; search skips symlinks | Windows junction tests and malicious-local-process TOCTOU resistance are not verified |
+| Overwrite/data loss or duplicate write/move | Create-new default, expected hash for replacement, atomic temporary-file write, bounded local ledger/reconciliation | Filesystem fault/restart tests have not run; move only supports same filesystem |
+| Renderer compromise / IPC abuse | Sandboxed renderer, context isolation, Node integration off, CSP, local content, deny navigation/popups, narrow IPC sender and schema checks | Electron launch/security tests unavailable |
+| Emergency stop not honored | Durable local emergencyStopped latch checked before execution, local confirmation to reset | Restart/offline behavior is source-only and unverified; backend emergency-stop route is not integrated |
+
+No source-level control is treated as verified protection until its acceptance tests run on the target OS. Current target is provisional Windows. The worker does not expose shell execution or deletion.
+# Phase 4 browser threats (source controls, unverified)
+
+Threats include prompt injection in page content, unsafe schemes, lookalike/private-network navigation, DNS rebinding, malicious redirects/popups, stale element references, wrong-tab actions, credential/cookie exposure, unauthorized file transfer, and duplicate or uncertain submissions. Source mitigations include a dedicated headed persistent profile, HTTP(S)-only URL validation, private/local IP checks and request routing, bounded structured observations with snapshot-bound opaque references, password-field exclusion, no model-evaluated JavaScript, conservative action classification, and fail-closed refusal of consequential clicks. These controls are not runtime/security verified; route interception and DNS checks are not a complete network sandbox. Exact submit approvals, upload/download mediation, and agent dispatch remain missing.
+
+Direct local fixture tests exercise selected controls but do not prove end-to-end API/worker enforcement or resistance to DNS rebinding, OS-level network escapes, hostile sites, or all browser crash/replay cases. Consequential clicks fail closed because exact approval is not wired through the existing approval lifecycle. See `TEST_EVIDENCE.md` for tested commands and gaps.

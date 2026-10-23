@@ -38,6 +38,12 @@ const serverConfigSchema = z.object({
   AGENT_MAX_REPEATED_ACTIONS: z.coerce.number().int().min(1).max(5).default(2),
   AGENT_MAX_TOTAL_TOKENS: z.coerce.number().int().min(100).max(100_000).default(8_000),
   AGENT_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(100).max(8_000).default(1_000),
+  DEVICE_PAIRING_TTL_MS: z.coerce.number().int().min(30_000).max(600_000).default(300_000),
+  DEVICE_PAIRING_MAX_ATTEMPTS: z.coerce.number().int().min(3).max(20).default(5),
+  DEVICE_AUTH_CHALLENGE_TTL_MS: z.coerce.number().int().min(5_000).max(60_000).default(15_000),
+  DEVICE_HEARTBEAT_INTERVAL_MS: z.coerce.number().int().min(2_000).max(60_000).default(10_000),
+  DEVICE_HEARTBEAT_TIMEOUT_MS: z.coerce.number().int().min(5_000).max(180_000).default(35_000),
+  WORKER_MAX_MESSAGE_BYTES: z.coerce.number().int().min(1_024).max(1_048_576).default(262_144),
 });
 
 export type ServerConfig = z.infer<typeof serverConfigSchema>;
@@ -71,6 +77,9 @@ export function parseServerConfig(environment: NodeJS.ProcessEnv): ServerConfig 
   }
   if (result.data.AI_API_KEY && (!result.data.AI_PROVIDER || !result.data.AI_MODEL)) {
     throw new Error('Invalid server configuration: AI_API_KEY requires AI_PROVIDER and AI_MODEL');
+  }
+  if (result.data.DEVICE_HEARTBEAT_TIMEOUT_MS <= result.data.DEVICE_HEARTBEAT_INTERVAL_MS) {
+    throw new Error('Invalid server configuration: DEVICE_HEARTBEAT_TIMEOUT_MS must exceed DEVICE_HEARTBEAT_INTERVAL_MS');
   }
 
   return result.data;

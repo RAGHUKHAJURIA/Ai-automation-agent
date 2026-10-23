@@ -1,10 +1,10 @@
 # Project status
 
-Current phase: **Phase 2 — AI Agent Brain / AI Orchestration**
-Active task: verify Phase 2 orchestration, configured provider behavior, and database-backed worker execution
-Last updated: 2026-10-21
+Current phase: **Phase 5 — Desktop Application Control**
+Active task: complete Windows desktop tool acceptance; Phase 3/4 backend dispatch and approval gaps remain
+Last updated: 2026-10-23
 
-Statuses follow `project_detail.md`: `NOT_STARTED`, `IN_PROGRESS`, `IMPLEMENTED_UNVERIFIED`, `VERIFIED`, `BLOCKED`, `DEFERRED_WITH_OWNER_APPROVAL`, `NOT_APPLICABLE_WITH_REASON`.
+Statuses follow `AGENTS.md`: `NOT_STARTED`, `IN_PROGRESS`, `IMPLEMENTED_UNVERIFIED`, `VERIFIED`, `BLOCKED`, `DEFERRED_WITH_OWNER_APPROVAL`, `NOT_APPLICABLE_WITH_REASON`.
 
 | Item | Status | Location | Acceptance/evidence | Blocker |
 |---|---|---|---|---|
@@ -52,13 +52,69 @@ No application or infrastructure runtime capability is verified yet. Compose syn
 
 Workspace manifests and Phase 0/1 source, config validation, API health routes, Compose definitions, CI workflow, and project documentation.
 
+## Phase 3 status
+
+Phase 3 is **IN_PROGRESS**. All source-level items below remain `IMPLEMENTED_UNVERIFIED` until dependency installation and runtime acceptance are completed. The task/agent queue worker is a separate process from the API-hosted device gateway; no desktop tool dispatch integration currently exists.
+
+| Item | Status | Location | Acceptance/evidence | Blocker |
+|---|---|---|---|---|
+| Electron main/preload/renderer security boundary | IMPLEMENTED_UNVERIFIED | `apps/desktop/src/main`, `src/preload`, `src/renderer` | Electron launch, IPC/navigation/CSP tests | Dependencies unavailable |
+| Device Ed25519 identity and OS secure storage | IMPLEMENTED_UNVERIFIED | `apps/desktop/src/main/credentials`, `pairing` | restart and encrypted-storage tests on target OS | Electron runtime unavailable |
+| One-time pairing and local confirmation | IMPLEMENTED_UNVERIFIED | `apps/api/src/phase3/devices.ts`, desktop pairing UI | owner pairing, signature/replay integration | MongoDB unavailable |
+| Authenticated outbound protocol v1 | IMPLEMENTED_UNVERIFIED | `apps/api/src/phase3/gateway.ts`, desktop worker client | authenticated WSS end-to-end | dependencies/services unavailable |
+| Heartbeat, capabilities, revocation | IMPLEMENTED_UNVERIFIED | API gateway and desktop worker | online/offline/revoke/reconnect exercise | no runtime service |
+| Local roots and folder grants | IMPLEMENTED_UNVERIFIED | `apps/desktop/src/main/filesystem` | native chooser + permission tests | Electron runtime unavailable |
+| Scoped file search/read/write/move | IMPLEMENTED_UNVERIFIED | `DesktopFileService` | real fixture filesystem tests | Vitest unavailable |
+| Traversal and symlink/junction containment | IMPLEMENTED_UNVERIFIED | `authorization.ts` | Windows link/reparse-point tests | tests/dependencies unavailable |
+| Local execution idempotency | IMPLEMENTED_UNVERIFIED | `ExecutionLedger` | process restart and lost-response replay | tests unavailable |
+| Local pause/emergency stop | IMPLEMENTED_UNVERIFIED | desktop main state/IPC | offline latch/restart test | Electron runtime unavailable; backend emergency-stop route not implemented |
+| Credential rotation | NOT_STARTED | device lifecycle API | old key rejected/new key accepted | not implemented; re-pairing is the current source-level recovery |
+| Owner web device dashboard | NOT_STARTED | `apps/web` | create/list/revoke device UI | pairing is currently API + local desktop UI only |
+| Filesystem audit trail | NOT_STARTED | device/task audit integration | each operation correlated to task/tool evidence | dispatch/audit integration remains outstanding |
+| Phase 2 desktop tool dispatch integration | NOT_STARTED | API task execution / device gateway | end-to-end agent-to-desktop command | architecture integration work remains |
+
+## Phase 4 status
+
+Phase 4 is **IMPLEMENTED_UNVERIFIED** overall. Direct Playwright fixture tests pass for selected operations, while full agent-to-worker dispatch, exact submission approval, crash reconciliation, and manual takeover/resume remain unverified or incomplete.
+
+| Item | Status | Location | Acceptance/evidence | Blocker |
+|---|---|---|---|---|
+| Playwright dependency and Chromium adapter | IMPLEMENTED_UNVERIFIED | `apps/desktop/package.json`, `apps/desktop/src/main/browser` | pinned Playwright, direct fixture E2E; headed desktop profile persistence unverified | desktop target acceptance |
+| URL scheme/private network checks | IMPLEMENTED_UNVERIFIED | `browser/security.ts`, `browser/service.ts` | unit tests and fixture route controls pass | no complete OS network sandbox; DNS rebinding not eliminated |
+| Page/session registry and structured inspect/read | IMPLEMENTED_UNVERIFIED | `BrowserAutomationService` | direct fixture test passes | broader page-state matrix incomplete |
+| Snapshot element references and fill/check/select | IMPLEMENTED_UNVERIFIED | `BrowserAutomationService` | direct fixture control test passes | stale/ambiguous control matrix incomplete |
+| Conservative click classifier | IMPLEMENTED_UNVERIFIED | `browser/security.ts`, `BrowserAutomationService` | classifier unit tests pass; fixture verifies submit refusal | exact approval integration absent |
+| Worker protocol recognizes browser tool names | IMPLEMENTED_UNVERIFIED | contracts, `apps/desktop/src/main/worker/client.ts`, API gateway | worker dispatch integration required | separate queue worker cannot access live device gateway |
+| Root-authorized upload/download and auth/challenge detection | IMPLEMENTED_UNVERIFIED | Browser service and Phase 3 file service | direct fixture transfer/hash/root-denial tests and auth/challenge detection pass | manual takeover handoff/resume incomplete |
+| Exact submission approval and outcome reconciliation | NOT_STARTED | — | exact form fingerprint, atomic approval, lost-response tests | not implemented |
+| Browser tool registration/dispatch source | IMPLEMENTED_UNVERIFIED | task system, tool registry, desktop worker | typechecked source | no API/queue/gateway/worker E2E |
+| Browser fixture/E2E | IMPLEMENTED_UNVERIFIED | `apps/desktop/e2e/browser.spec.ts` | 3 direct Playwright fixture tests pass | approval, crash/restart, and security matrices incomplete |
+
 ## Not started
 
-Phase 3 and all later product capabilities. Phase 0/1/2 implementations remain unverified; readiness requires MongoDB, Redis, dependencies, and explicit AI configuration for agent tasks.
+Phase 6 and later product capabilities. Phase 5 is in progress; see the Phase 5 table below. Earlier phase status rows record historical evidence and are not superseded by source changes alone.
+
+## Phase 5 status
+
+Phase 5 is **IN_PROGRESS**. The Windows fixture and service path ran on Windows build 26300 at 125% scaling. The owner command → API queue → device gateway path, exact approval for consequential desktop actions, and two real application workflows have not passed.
+
+| Item | Status | Evidence / limit |
+|---|---|---|
+| Python 3.10 / pywinauto 0.6.9 helper and versioned stdio protocol | VERIFIED | Helper ping and four protocol tests pass; no network listener or arbitrary Python operation. |
+| Project-local Python dependencies and helper supervision | IMPLEMENTED_UNVERIFIED | Pinned venv dependencies, TS timeout/response validation; crash/lost-response test matrix incomplete. |
+| Local approved-app registry and native picker | IMPLEMENTED_UNVERIFIED | Registry/schema tests pass; Electron picker not manually exercised. |
+| App launch, window discovery, opaque refs, focus and UIA inspection | IMPLEMENTED_UNVERIFIED | Real fixture service and VS Code probe pass; production paired-device path unverified. |
+| Literal text, guarded click, screenshot, wrong-window and movement checks | IMPLEMENTED_UNVERIFIED | Real WinForms fixture passes at 120 DPI; screenshot private artifact retrieval/retention acceptance incomplete. |
+| VS Code workspace and known-file launch | IMPLEMENTED_UNVERIFIED | Separate VS Code 1.140.0 window title showed fixture workspace/file; editor edit/save workflow not implemented. |
+| Notepad workflow | BLOCKED | Windows 11 System32 launcher exits and actual window belongs to packaged WindowsApps executable; an existing unsaved owner document was left untouched. |
+| Local Take Control, pause, cancellation, stop | IMPLEMENTED_UNVERIFIED | Service fixture passes takeover/cancel/stop and stop-state reload; Electron button, actual owner input timing, device lease E2E unverified. |
+| Character Map second-app workflow | IMPLEMENTED_UNVERIFIED | Direct helper enabled Advanced view and entered/verified search text; displayed character was observed, but no independently changed post-search result was established. |
+| Visual fallback, multiple monitors, UAC/lock-screen acceptance | NOT_STARTED | No complete workflow or target environment evidence. |
+| Agent-to-desktop tool dispatch | IMPLEMENTED_UNVERIFIED | Descriptors, contracts, capability filtering, and worker compiled; the existing gateway allocates a fresh fencing token per dispatch. Separate BullMQ worker still cannot access the API process-local live device map. |
 
 ## Next task
 
-Restore registry access, generate `pnpm-lock.yaml`, then run all quality gates, verify MongoDB/Redis and the live provider flow, and perform Phase 2 acceptance demonstrations before advancing to Phase 3.
+Complete Phase 3 runtime/dispatch acceptance and Phase 4 exact submission approval/reconciliation before considering Phase 5.
 
 ## Phase 2 status
 

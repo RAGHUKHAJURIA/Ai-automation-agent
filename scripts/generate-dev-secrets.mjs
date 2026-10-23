@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { copyFile, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 
 const source = new URL('../.env.example', import.meta.url);
 const target = new URL('../.env', import.meta.url);

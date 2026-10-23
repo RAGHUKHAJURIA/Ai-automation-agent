@@ -96,7 +96,13 @@ async function verifyToken(token: string, type: 'access' | 'refresh', config: Se
     throw new InvalidAuthToken('Invalid authentication token');
   }
   if (result.payload.type !== type || typeof result.payload.sub !== 'string' || typeof result.payload.sid !== 'string' || typeof result.payload.jti !== 'string' || typeof result.payload.ver !== 'number') throw new InvalidAuthToken('Invalid authentication token');
-  return result.payload;
+  return {
+    type: result.payload.type as 'access' | 'refresh',
+    sub: result.payload.sub as string,
+    sid: result.payload.sid as string,
+    jti: result.payload.jti as string,
+    ver: result.payload.ver as number,
+  };
 }
 
 export async function authenticateAccess(token: string, config: ServerConfig): Promise<Principal> {

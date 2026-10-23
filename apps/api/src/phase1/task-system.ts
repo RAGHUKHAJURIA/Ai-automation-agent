@@ -4,15 +4,15 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { approvalRecordSchema, commandRequestSchema, commandSchema, policyRecordSchema, taskJobSchema, taskSchema, type TaskState } from '@personal-agent/contracts';
 import { assertTransition, canTransition } from '@personal-agent/agent-core/task-state';
-import { evaluatePolicy } from '@personal-agent/policy';
-import { getTimeTool, ToolRegistry } from '@personal-agent/tools';
-import { mathAddTool, mathMultiplyTool } from '@personal-agent/tools';
+import { evaluatePolicy, isDomainAllowed } from '@personal-agent/policy';
+import { createBrowserTools, createDesktopTools, getTimeTool, mathAddTool, mathMultiplyTool, ToolRegistry } from '@personal-agent/tools';
 import { agentCheckpointSchema, createEmptyCheckpoint, runAgent, verifyGoalEvidence, type AgentCheckpoint, type AgentToolOutcome } from '@personal-agent/agent-core';
 import type { ServerConfig } from '@personal-agent/config/server';
 import type { Document, ClientSession } from 'mongodb';
 import { mongoClient, mongoDatabase } from '../infrastructure/mongodb.js';
 import { requireAuth } from './http.js';
 import { createModelProvider } from '../phase2/openai-provider.js';
+import { dispatchDeviceTool, isDeviceOnline } from '../phase3/gateway.js';
 
 const queueDataSchema = taskJobSchema;
 const tasks = () => mongoDatabase().collection<Document & { taskId: string; ownerId: string; status: TaskState; version: number; dispatchVersion: number }>('tasks');
@@ -21,10 +21,60 @@ const registry = new ToolRegistry();
 registry.register(getTimeTool);
 registry.register(mathAddTool);
 registry.register(mathMultiplyTool);
+for (const browserTool of createBrowserTools(dispatchBrowserTool)) registry.register(browserTool);
+for (const desktopTool of createDesktopTools(dispatchBrowserTool)) registry.register(desktopTool);
 let taskQueue: Queue | undefined;
 let queueReady = false;
 let outboxTimer: NodeJS.Timeout | undefined;
 const dispatcherId = randomUUID();
+
+async function dispatchBrowserTool(toolName: string, rawInput: unknown, context: { ownerId: string; taskId: string; toolCallId?: string; idempotencyKey: string }, signal: AbortSignal) {
+  if (signal.aborted) return { outcome: 'CANCELLED' as const, summary: 'Browser action cancelled before dispatch.', sideEffectMayHaveOccurred: false, retryRecommendation: false };
+  if (!context.toolCallId) return { outcome: 'FAILED' as const, summary: 'Browser tool call identity is missing.', sideEffectMayHaveOccurred: false, retryRecommendation: false, errorCode: 'TOOL_CALL_ID_REQUIRED' };
+  const input = rawInput as Record<string, unknown>;
+  const requestedDeviceId = toolName === 'browser.open' && typeof input.deviceId === 'string' ? input.deviceId : undefined;
+  let authorizedDomains: string[] | undefined;
+  if (toolName === 'browser.open') {
+    let destination: URL;
+    try { destination = new URL(String(input.url)); } catch { return { outcome: 'PERMISSION_DENIED' as const, summary: 'Browser URL is invalid.', sideEffectMayHaveOccurred: false, retryRecommendation: false, errorCode: 'INVALID_URL' }; }
+    if (!['http:', 'https:'].includes(destination.protocol) || destination.username || destination.password) return { outcome: 'PERMISSION_DENIED' as const, summary: 'Browser URL scheme or credentials are not allowed.', sideEffectMayHaveOccurred: false, retryRecommendation: false, errorCode: 'NAVIGATION_DENIED' };
+    const storedDomainPolicies = await collection('policies').find({ ownerId: context.ownerId, enabled: true, toolPatterns: 'browser.open' }).limit(100).toArray();
+    const domainPolicies = storedDomainPolicies.flatMap((policy) => {
+      const result = policyRecordSchema.safeParse(policy);
+      return result.success && result.data.domains?.length ? [result.data] : [];
+    });
+    const denied = domainPolicies.some((policy) => policy.effect === 'DENY' && isDomainAllowed(destination.hostname, policy.domains ?? []));
+    const allows = domainPolicies.filter((policy) => policy.effect === 'ALLOW' && isDomainAllowed(destination.hostname, policy.domains ?? []));
+    if (denied || !allows.length) return { outcome: 'PERMISSION_DENIED' as const, summary: 'No enabled browser domain policy allows this destination.', sideEffectMayHaveOccurred: false, retryRecommendation: false, errorCode: 'DOMAIN_NOT_ALLOWED' };
+    authorizedDomains = [...new Set(allows.flatMap((policy) => policy.domains ?? []))];
+  }
+  const currentTask = await tasks().findOne({ taskId: context.taskId, ownerId: context.ownerId });
+  const selectedDeviceId = Array.isArray(currentTask?.selectedDeviceReferences) ? currentTask.selectedDeviceReferences[0] : undefined;
+  if (requestedDeviceId && selectedDeviceId && requestedDeviceId !== selectedDeviceId) return { outcome: 'PERMISSION_DENIED' as const, summary: 'This task is already bound to a different desktop device.', sideEffectMayHaveOccurred: false, retryRecommendation: false, errorCode: 'TASK_DEVICE_MISMATCH' };
+  const devices = await collection('devices').find({ ownerId: context.ownerId, revokedAt: null, connectionState: 'ONLINE' }).project({ deviceId: 1, capabilities: 1 }).limit(20).toArray();
+  const online = devices.filter((device) => typeof device.deviceId === 'string' && isDeviceOnline(device.deviceId, 45_000) && Array.isArray(device.capabilities) && device.capabilities.some((capability) => capability.name === toolName && capability.enabled === true));
+  const targetDeviceId = requestedDeviceId ?? selectedDeviceId;
+  const target = targetDeviceId ? online.find((device) => device.deviceId === targetDeviceId) : online.length === 1 ? online[0] : undefined;
+  if (!target) return { outcome: online.length > 1 && !requestedDeviceId ? 'NEEDS_INPUT' as const : 'DEVICE_OFFLINE' as const, summary: online.length > 1 && !requestedDeviceId ? 'Select one paired device for browser execution.' : 'No eligible paired desktop worker is online.', sideEffectMayHaveOccurred: false, retryRecommendation: false };
+  const argumentsForWorker = { ...input };
+  delete argumentsForWorker.deviceId;
+  const workerArguments = toolName === 'browser.open' ? { ...argumentsForWorker, authorizedDomains } : argumentsForWorker;
+  try {
+    const result = await dispatchDeviceTool(target.deviceId, {
+      ownerId: context.ownerId, deviceId: target.deviceId, taskId: context.taskId, toolCallId: context.toolCallId,
+      toolName, toolVersion: 1, deadline: new Date(Date.now() + 60_000).toISOString(), leaseExpiresAt: new Date(Date.now() + 30_000).toISOString(),
+      leaseId: randomUUID(), fencingToken: 1, idempotencyKey: context.idempotencyKey, arguments: workerArguments,
+    }, 65_000);
+    const parsed = z.object({ outcome: z.enum(['SUCCESS', 'FAILED', 'NEEDS_INPUT', 'NOT_SUPPORTED', 'NOT_CONFIGURED', 'AUTH_REQUIRED', 'PERMISSION_DENIED', 'DEVICE_OFFLINE', 'CANCELLED', 'OUTCOME_UNKNOWN']), summary: z.string().optional(), structuredOutput: z.unknown().optional(), errorCode: z.string().optional() }).passthrough().safeParse(result);
+    if (!parsed.success) return { outcome: 'FAILED' as const, summary: 'Desktop worker returned an invalid browser result.', sideEffectMayHaveOccurred: true, retryRecommendation: false, errorCode: 'INVALID_WORKER_RESULT' };
+    if (['browser.open', 'desktop.launch_app'].includes(toolName) && parsed.data.outcome === 'SUCCESS') await tasks().updateOne({ taskId: context.taskId, ownerId: context.ownerId, status: 'RUNNING' }, { $set: { selectedDeviceReferences: [target.deviceId], updatedAt: new Date() } });
+    return { outcome: parsed.data.outcome, summary: parsed.data.summary ?? `Device tool ${toolName} returned ${parsed.data.outcome}.`, ...(parsed.data.structuredOutput === undefined ? {} : { structuredOutput: parsed.data.structuredOutput }), sideEffectMayHaveOccurred: ['browser.click', 'browser.upload', 'browser.download', 'desktop.launch_app', 'desktop.focus_window', 'desktop.type_text', 'desktop.click_control', 'desktop.press_key', 'desktop.hotkey', 'desktop.capture_window'].includes(toolName), retryRecommendation: false, ...(parsed.data.errorCode ? { errorCode: parsed.data.errorCode } : {}) };
+  } catch (error) {
+    const code = error instanceof Error ? error.message : 'DEVICE_DISPATCH_FAILED';
+    const outcome = code === 'DEVICE_OFFLINE' ? 'DEVICE_OFFLINE' as const : code === 'OUTCOME_UNKNOWN' || ['DEVICE_EXECUTION_TIMEOUT', 'DEVICE_DISPATCH_FAILED'].includes(code) ? 'OUTCOME_UNKNOWN' as const : 'FAILED' as const;
+    return { outcome, summary: outcome === 'OUTCOME_UNKNOWN' ? 'Browser action may have run; inspect the desktop before retrying.' : 'Browser action could not be dispatched.', sideEffectMayHaveOccurred: outcome === 'OUTCOME_UNKNOWN', retryRecommendation: false, errorCode: code.slice(0, 64) };
+  }
+}
 
 function connectionFromRedisUrl(url: string) {
   const parsed = new URL(url);
@@ -97,7 +147,7 @@ export function commandRouter(config: ServerConfig): Router {
           const command = commandSchema.parse({ commandId, ownerId, conversationId: parsed.data.conversationId ?? null, sourceChannel: 'web', sourceEventId: idempotencyKey, originalText: parsed.data.text, normalizedIntent: useAgent ? 'AI_ORCHESTRATE' : supported ? 'SYSTEM_GET_TIME' : 'UNSUPPORTED', receivedAt: now, timezone: parsed.data.timezone, attachmentReferences: [], requestedDeviceId: null });
           const task = taskSchema.parse({ taskId, ownerId, commandId, goal: parsed.data.text, status: 'RECEIVED', planVersion: 1, requestedCapabilities: useAgent ? [] : supported ? ['system.get_time'] : [], selectedDeviceReferences: [], selectedAccountReferences: [], permissionPolicyReferences: [], deadline: null, limits: { timeoutMs: config.TASK_DEFAULT_TIMEOUT_MS }, currentCheckpoint: null, createdAt: now, updatedAt: now, outcomeSummary: null, evidenceReferences: [], terminalError: null, version: 0, dispatchVersion: 0, pauseRequestedAt: null, cancelRequestedAt: null, arguments: { timezone: parsed.data.timezone } });
           await collection('commands').insertOne(command as Document, { session });
-          await tasks().insertOne(task as Document, { session });
+          await tasks().insertOne(task, { session });
           await collection('audit_events').insertOne({ auditEventId: randomUUID(), ownerId, actorType: 'OWNER', actorId: ownerId, sessionId: request.principal!.sessionId, action: 'command.created', targetType: 'command', targetId: commandId, requestId: request.requestId, taskId, outcome: 'SUCCESS', timestamp: now, metadata: {} }, { session });
           await collection('task_events').insertOne({ eventId: randomUUID(), taskId, ownerId, fromState: null, toState: 'RECEIVED', reasonCode: 'COMMAND_ACCEPTED', actorType: 'OWNER', actorId: ownerId, taskVersion: 0, timestamp: now, metadata: {} }, { session });
           const current = initial === 'QUEUED' ? ['VALIDATING', 'PLANNING', 'QUEUED'] as const : ['VALIDATING', 'PLANNING', 'WAITING_FOR_INPUT'] as const;
@@ -342,15 +392,17 @@ export function usageRouter(config: ServerConfig): Router {
   return router;
 }
 
-async function executeTask(job: Job): Promise<void> {
+async function executeTask(job: Job, config: ServerConfig): Promise<void> {
   const payload = queueDataSchema.parse(job.data);
   const task = await tasks().findOne({ taskId: payload.taskId, ownerId: payload.ownerId, status: 'QUEUED', dispatchVersion: payload.dispatchVersion });
   if (!task) return;
-  const command = await collection('commands').findOne({ commandId: task.commandId, ownerId: task.ownerId });
-  if (!command) {
+  const storedCommand = await collection('commands').findOne({ commandId: task.commandId, ownerId: task.ownerId });
+  const parsedCommand = storedCommand ? commandSchema.safeParse(storedCommand) : undefined;
+  if (!parsedCommand?.success) {
     await transition(task.taskId, task.ownerId, task.version, 'FAILED', 'UNSUPPORTED_INTENT');
     return;
   }
+  const command = parsedCommand.data;
   const started = await transition(task.taskId, task.ownerId, task.version, 'RUNNING', 'WORKER_STARTED');
   if (!started) return;
   const executionLeaseId = randomUUID();
@@ -455,12 +507,14 @@ async function executeAgentTask(task: Document & { taskId: string; ownerId: stri
       await transition(task.taskId, task.ownerId, Number(current.version) + 1, 'FAILED', reason);
     }
   };
-  const provider = createModelProvider(config);
+  const provider = createModelProvider({ ...(config.AI_PROVIDER ? { AI_PROVIDER: config.AI_PROVIDER } : {}), ...(config.AI_API_KEY ? { AI_API_KEY: config.AI_API_KEY } : {}) });
   if (!provider || !config.AI_MODEL) { await fail('MODEL_NOT_CONFIGURED'); return; }
 
   const storedPolicies = await collection('policies').find({ ownerId: task.ownerId, enabled: true }).toArray();
   const policies = storedPolicies.map((policy) => policyRecordSchema.safeParse(policy)).filter((result) => result.success).map((result) => result.data);
-  const eligible = registry.list().filter((tool) => ['ALLOW', 'REQUIRE_APPROVAL', 'REQUIRE_INPUT'].includes(evaluatePolicy(tool.descriptor.name, policies.map(({ policyId, enabled, effect, toolPatterns }) => ({ policyId, enabled, effect, toolPatterns }))).decision));
+  const connectedDevices = await collection('devices').find({ ownerId: task.ownerId, revokedAt: null, connectionState: 'ONLINE', lastHeartbeatAt: { $gte: new Date(Date.now() - 45_000) } }).project({ capabilities: 1 }).limit(20).toArray();
+  const availableDeviceTools = new Set(connectedDevices.flatMap((device) => Array.isArray(device.capabilities) ? device.capabilities.filter((capability: { enabled?: boolean; name?: string }) => capability.enabled === true && typeof capability.name === 'string').map((capability: { name: string }) => capability.name) : []));
+  const eligible = registry.list().filter((tool) => (!tool.descriptor.requiredDevice || availableDeviceTools.has(tool.descriptor.name)) && ['ALLOW', 'REQUIRE_APPROVAL', 'REQUIRE_INPUT'].includes(evaluatePolicy(tool.descriptor.name, policies.map(({ policyId, enabled, effect, toolPatterns }) => ({ policyId, enabled, effect, toolPatterns }))).decision));
   const tools = eligible.map((tool) => ({ name: tool.descriptor.name, version: tool.descriptor.version, description: tool.descriptor.description, inputJsonSchema: z.toJSONSchema(tool.descriptor.inputSchema) as Record<string, unknown> }));
   const agentRunId = `task-${task.taskId}`;
   const now = new Date();
@@ -548,12 +602,12 @@ async function executeAgentTask(task: Document & { taskId: string; ownerId: stri
         signal.addEventListener('abort', abort, { once: true });
         const timeout = setTimeout(abort, tool.descriptor.timeoutMs);
         try {
-          const rawResult = await tool.execute(args, { ownerId: task.ownerId, taskId: task.taskId, idempotencyKey }, controller.signal);
+          const rawResult = await tool.execute(args, { ownerId: task.ownerId, taskId: task.taskId, toolCallId, idempotencyKey }, controller.signal);
           const output = rawResult.structuredOutput === undefined ? undefined : registry.validateOutput(tool, rawResult.structuredOutput);
           const serializedResult = { ...rawResult, ...(output === undefined ? {} : { structuredOutput: output }) };
           await calls.updateOne({ toolCallId, executionStatus: 'STARTED' }, { $set: { executionStatus: rawResult.outcome === 'SUCCESS' ? 'COMPLETED' : 'FAILED', completedAt: new Date(), result: serializedResult } });
           await collection('audit_events').insertOne({ auditEventId: randomUUID(), ownerId: task.ownerId, actorType: 'WORKER', action: rawResult.outcome === 'SUCCESS' ? 'tool.completed' : 'tool.failed', targetType: 'tool_call', targetId: toolCallId, taskId: task.taskId, policyDecisionId: decisionId, outcome: rawResult.outcome, timestamp: new Date(), metadata: { toolName } });
-          return { outcome: rawResult.outcome === 'SUCCESS' ? 'SUCCESS' : rawResult.outcome === 'NEEDS_INPUT' ? 'NEEDS_INPUT' : rawResult.outcome === 'OUTCOME_UNKNOWN' ? 'OUTCOME_UNKNOWN' : 'FAILED', summary: rawResult.summary, ...(output === undefined ? {} : { output }), evidenceReference: toolCallId };
+          return { outcome: rawResult.outcome === 'SUCCESS' ? 'SUCCESS' : rawResult.outcome === 'NEEDS_INPUT' || rawResult.outcome === 'AUTH_REQUIRED' ? 'NEEDS_INPUT' : rawResult.outcome === 'OUTCOME_UNKNOWN' ? 'OUTCOME_UNKNOWN' : 'FAILED', summary: rawResult.summary, ...(output === undefined ? {} : { output }), evidenceReference: toolCallId };
         } finally { clearTimeout(timeout); signal.removeEventListener('abort', abort); }
       },
     });
@@ -668,7 +722,7 @@ export async function stopOutboxDispatcher(): Promise<void> {
 
 export async function startTaskWorker(config: ServerConfig): Promise<Worker> {
   await initializeTaskQueue(config);
-  const worker = new Worker(config.BULLMQ_TASK_QUEUE_NAME, async (job) => executeTask(job), { connection: connectionFromRedisUrl(config.REDIS_URL), concurrency: config.BULLMQ_WORKER_CONCURRENCY });
+  const worker = new Worker(config.BULLMQ_TASK_QUEUE_NAME, async (job) => executeTask(job, config), { connection: connectionFromRedisUrl(config.REDIS_URL), concurrency: config.BULLMQ_WORKER_CONCURRENCY });
   worker.on('error', () => process.stderr.write(`${JSON.stringify({ timestamp: new Date().toISOString(), level: 'error', event: 'bullmq_worker_error' })}\n`));
   worker.on('failed', (job) => { if (job) process.stderr.write(`Task worker failed job=${job.id ?? 'unknown'}\n`); });
   await worker.waitUntilReady();

@@ -1,14 +1,15 @@
 import cors from 'cors';
-import express from 'express';
+import express, { type Express } from 'express';
 import helmet from 'helmet';
 import { parseServerConfig, type ServerConfig } from '@personal-agent/config/server';
 import { healthRouter } from './routes/health.js';
 import { authRouter } from './phase1/auth-routes.js';
 import { approvalRouter, auditRouter, commandRouter, taskRouter, usageRouter } from './phase1/task-system.js';
 import { errorHandler, requestContext } from './phase1/http.js';
+import { deviceRouter } from './phase3/devices.js';
 
-export function createApp(inputConfig: Pick<ServerConfig, 'WEB_ORIGIN'> & Partial<ServerConfig>) {
-  const config = parseServerConfig(inputConfig as NodeJS.ProcessEnv);
+export function createApp(inputConfig: Pick<ServerConfig, 'WEB_ORIGIN'> & Partial<ServerConfig>): Express {
+  const config = parseServerConfig(inputConfig as unknown as NodeJS.ProcessEnv);
   const app = express();
   app.disable('x-powered-by');
   app.use(requestContext);
@@ -22,6 +23,7 @@ export function createApp(inputConfig: Pick<ServerConfig, 'WEB_ORIGIN'> & Partia
   app.use('/api/approvals', approvalRouter(config));
   app.use('/api/audit', auditRouter(config));
   app.use('/api/usage', usageRouter(config));
+  app.use('/api/devices', deviceRouter(config));
   app.use((_request, response) => {
     response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route not found' } });
   });

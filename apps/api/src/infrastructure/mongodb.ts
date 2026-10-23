@@ -52,8 +52,14 @@ export async function initializeIndexes(): Promise<void> {
     ['model_usage', [{ ownerId: 1, createdAt: -1 }]],
     ['model_usage', [{ taskId: 1, createdAt: -1 }]],
     ['model_usage', [{ taskId: 1, iterationNumber: 1 }], { unique: true, name: 'usage_task_iteration_unique' }],
+    ['devices', [{ deviceId: 1 }], { unique: true, name: 'device_id_unique' }],
+    ['devices', [{ ownerId: 1, createdAt: -1 }]],
+    ['devices', [{ publicKeyFingerprint: 1 }], { unique: true, name: 'device_key_fingerprint_unique' }],
+    ['pairing_requests', [{ pairingRequestId: 1 }], { unique: true, name: 'pairing_request_id_unique' }],
+    ['pairing_requests', [{ ownerId: 1, createdAt: -1 }]],
+    ['pairing_requests', [{ expiresAt: 1 }]],
   ];
-  for (const [collection, keys, options] of indexes) await database.collection(collection).createIndex(Object.fromEntries(keys), options);
+  for (const [collection, keys, options] of indexes) await database.collection(collection).createIndex(Object.assign({}, ...keys), options);
 }
 
 export async function connectMongo(uri: string): Promise<void> {

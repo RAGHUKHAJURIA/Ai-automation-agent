@@ -1,4 +1,11 @@
 node_modules/
+.venv/
+__pycache__/
+**/bin/
+**/obj/
+/tests/fixtures/windows-ui/evidence/
+.dotnet/
+/apps/desktop/test-output/
 .pnpm-store/
 .env
 .env.*

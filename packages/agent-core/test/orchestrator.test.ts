@@ -90,7 +90,7 @@ describe('agent context security', () => {
     expect(redactModelContext('Authorization: Bearer secret-token-value')).toContain('[REDACTED]');
     expect(redactModelContext('password is secret-value')).not.toContain('secret-value');
     expect(redactModelContext('mongodb://owner:secret@localhost/db')).not.toContain('secret');
-    const context = buildAgentContext('owner request', { ...createEmptyCheckpoint(), history: [{ toolName: 'fixture', outcome: 'SUCCESS', summary: 'real result' }] });
+    const context = buildAgentContext('owner request', { ...createEmptyCheckpoint(), history: [{ toolName: 'system.get_time', outcome: 'SUCCESS', summary: 'real result' }] });
     expect(context[0]).toMatchObject({ source: 'OWNER', trust: 'PRIVILEGED' });
     expect(context[1]).toMatchObject({ source: 'TOOL', trust: 'VERIFIED' });
   });

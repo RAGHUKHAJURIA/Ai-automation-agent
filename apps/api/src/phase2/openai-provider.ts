@@ -69,7 +69,7 @@ export class OpenAIResponsesProvider implements ModelProvider {
         ...(response._request_id ? { requestId: response._request_id } : {}),
         latencyMs: Math.max(0, Math.round(performance.now() - start)),
         ...(response.usage ? { usage: { inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens, totalTokens: response.usage.total_tokens } } : {}),
-        finishReason: response.status,
+        finishReason: response.status ?? 'unknown',
       };
     } catch (error) {
         if (error instanceof AgentProviderError) throw error;

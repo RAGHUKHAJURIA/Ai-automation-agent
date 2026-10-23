@@ -33,3 +33,16 @@ main {
 a {
   color: #354a9b;
 }
+
+.pairing-code {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid #e4b95f;
+  border-radius: 0.75rem;
+  background: #fff9e9;
+}
+
+.pairing-code strong {
+  font-size: 1.4rem;
+  letter-spacing: 0.12em;
+}

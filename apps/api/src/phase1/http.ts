@@ -3,6 +3,8 @@ import type { NextFunction, Request, Response } from 'express';
 import type { ServerConfig } from '@personal-agent/config/server';
 import { authenticateAccess, InvalidAuthToken, type Principal } from './auth.js';
 
+// Express's declaration-merging contract requires a namespace augmentation.
+// eslint-disable-next-line @typescript-eslint/no-namespace
 declare global { namespace Express { interface Request { requestId: string; principal?: Principal } } }
 
 export function requestContext(request: Request, response: Response, next: NextFunction): void {
@@ -33,7 +35,7 @@ export function originGuard(config: ServerConfig) {
   };
 }
 
-export function errorHandler(_error: unknown, request: Request, response: Response, _next: NextFunction): void {
+export function errorHandler(error: unknown, request: Request, response: Response, _next: NextFunction): void {
   process.stderr.write(`${JSON.stringify({ timestamp: new Date().toISOString(), level: 'error', event: 'request_failed', requestId: request.requestId })}\n`);
   const status = error instanceof Error && error.message === 'INVALID_CREDENTIALS' ? 401 : 500;
   const code = status === 401 ? 'INVALID_CREDENTIALS' : 'INTERNAL_ERROR';

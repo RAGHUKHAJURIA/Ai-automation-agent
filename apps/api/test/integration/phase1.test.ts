@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { Queue } from 'bullmq';
@@ -150,5 +150,31 @@ describe('Phase 1 durable task system', () => {
     await startOutboxDispatcher(config);
     await waitForTask(recoveryTask, 'SUCCEEDED');
     expect(await mongoDatabase().collection('tool_calls').countDocuments({ taskId: recoveryTask })).toBe(1);
+  });
+
+  it('pairs a device with a one-time code and owner-confirmed Ed25519 proof', async () => {
+    const ownerId = await createOwner(`device-${randomUUID()}@example.test`, 'phase-three-device-passphrase');
+    const owner = await mongoDatabase().collection('owners').findOne({ ownerId });
+    const login = await request(app).post('/api/auth/login').send({ email: owner?.normalizedEmail, password: 'phase-three-device-passphrase' });
+    expect(login.status).toBe(200);
+    const auth = `Bearer ${String(login.body.accessToken)}`;
+    const created = await request(app).post('/api/devices/pairing').set('Authorization', auth).send({});
+    expect(created.status).toBe(201);
+    const keys = generateKeyPairSync('ed25519');
+    const publicKeyPem = keys.publicKey.export({ type: 'spki', format: 'pem' }).toString();
+    const claim = await request(app).post('/api/devices/pairing/claim').send({ pairingRequestId: created.body.pairingRequestId, pairingCode: created.body.code, displayName: 'Controlled test computer', publicKeyPem, platform: 'win32', architecture: 'x64', workerVersion: 'test' });
+    expect(claim.status).toBe(200);
+    const proof = { pairingRequestId: claim.body.pairingRequestId, deviceId: claim.body.deviceId, ownerId: claim.body.ownerId, challengeNonce: claim.body.challengeNonce, publicKeyFingerprint: claim.body.publicKeyFingerprint, protocolVersion: 1 };
+    const canonical = Buffer.from(JSON.stringify({ version: 1, ...proof }), 'utf8');
+    const signature = sign(null, canonical, keys.privateKey).toString('base64url');
+    const completion = await request(app).post('/api/devices/pairing/complete').send({ ...proof, signature, localConfirmed: true });
+    expect(completion.status).toBe(201);
+    expect((await mongoDatabase().collection('devices').findOne({ deviceId: claim.body.deviceId, ownerId })).publicKeyPem).toBe(publicKeyPem);
+    const replay = await request(app).post('/api/devices/pairing/complete').send({ ...proof, signature, localConfirmed: true });
+    expect(replay.status).toBe(401);
+    expect((await request(app).get('/api/devices').set('Authorization', auth)).body.devices).toHaveLength(1);
+    const revoked = await request(app).post(`/api/devices/${claim.body.deviceId}/revoke`).set('Authorization', auth);
+    expect(revoked.status).toBe(200);
+    expect((await mongoDatabase().collection('devices').findOne({ deviceId: claim.body.deviceId }))?.revokedAt).toBeTruthy();
   });
 });

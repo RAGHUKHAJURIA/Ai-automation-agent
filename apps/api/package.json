@@ -27,7 +27,8 @@
     "zod": "4.6.5",
     "express": "5.3.0",
     "mongodb": "7.7.0",
-    "redis": "6.3.0"
+    "redis": "6.3.0",
+    "ws": "8.22.0"
   },
   "devDependencies": {
     "tsx": "4.23.15"

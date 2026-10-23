@@ -4,6 +4,7 @@ import { createApp } from './app.js';
 import { connectMongo, disconnectMongo, initializeIndexes } from './infrastructure/mongodb.js';
 import { connectRedis, disconnectRedis } from './infrastructure/redis.js';
 import { startOutboxDispatcher, stopOutboxDispatcher } from './phase1/task-system.js';
+import { attachDeviceGateway } from './phase3/gateway.js';
 
 let config: ServerConfig;
 try {
@@ -19,6 +20,7 @@ try {
 
 const app = createApp(config);
 const server = createServer(app);
+attachDeviceGateway(server, config);
 server.requestTimeout = 15_000;
 server.headersTimeout = 10_000;
 const logLevels = { debug: 0, info: 1, warn: 2, error: 3 } as const;
