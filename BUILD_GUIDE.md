@@ -1,6 +1,6 @@
 # Build and development guide
 
-This guide follows the authoritative project instructions in `AGENTS.md`. Phase 3/4 sources and controlled browser fixture tests exist. Phase 5 now has a Windows pywinauto helper and a passing real UI fixture; VS Code editor save and full owner-command-to-device dispatch remain unverified. Messaging and connected services are not implemented. See `docs/STATUS.md` for current evidence.
+This guide follows the authoritative project instructions in `AGENTS.md`. Phase 3/4 sources and controlled browser fixture tests exist. Phase 5 has a Windows pywinauto helper and a passing real UI fixture; VS Code editor save and full owner-command-to-device dispatch remain unverified. Phase 6 has a provider-neutral test fixture and shared command ingestion, but the personal-use WhatsApp Business Platform channel is blocked by current terms. No production messaging provider is configured. See `docs/STATUS.md` for current evidence.
 
 ## Requirements
 
@@ -27,3 +27,7 @@ Phase 1 uses Argon2id password hashes, short-lived JWT access tokens, rotating H
 `pnpm check` runs formatting, lint, strict TypeScript, and Vitest. `pnpm test:integration` requires live MongoDB replica set and Redis. `pnpm infra:config` validates Compose without starting services. Local Compose initializes single-node replica set `rs0`; transaction behavior must be verified by integration tests.
 
 Refer to `docs/RUNBOOK.md` for operations and `docs/TROUBLESHOOTING.md` for diagnosis.
+
+## Phase 7 development setup
+
+The Google connector is disabled unless all four `GOOGLE_OAUTH_*` and `GOOGLE_TOKEN_ENCRYPTION_KEY` values in `.env.example` are configured. Create a Google Cloud web OAuth client with an exact callback URI ending `/api/connections/google/callback`, enable Gmail and Calendar APIs, and use a controlled test account. Keep the AES key and client secret outside version control. Owner policy remains default-deny until the authenticated dashboard explicitly enables individual Phase 7 tools. The schedule worker starts alongside the existing task worker and requires both MongoDB replica-set transactions and Redis. `pnpm test` covers deterministic Phase 7 security/timezone checks; live account and restart tests are separate and currently unverified.

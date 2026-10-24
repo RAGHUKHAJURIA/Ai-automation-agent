@@ -1,5 +1,9 @@
 # Initial threat model
 
+## Phase 6 messaging additions
+
+Forged webhooks, spoofed display names, duplicate deliveries, ambiguous approvals, and provider acceptance mistaken for delivery are in scope. The current test channel verifies the exact signed bytes before parsing, denies unpaired senders through an injected identity resolver, requires explicit UUID control references, and reuses command uniqueness. Delivery contracts distinguish accepted, failed, and unknown outcomes. These are component controls only: no production provider webhook, pairing, media fetching, receipt verification, or outbound sender is enabled. A future provider must add provider-specific authentication, rate limits, media restrictions, and durable event/retry tests before deployment.
+
 ## Phase 5 Windows UI threats (2026-10-23)
 
 | Threat | Implemented mitigation | Remaining limit |
@@ -89,3 +93,11 @@ No source-level control is treated as verified protection until its acceptance t
 Threats include prompt injection in page content, unsafe schemes, lookalike/private-network navigation, DNS rebinding, malicious redirects/popups, stale element references, wrong-tab actions, credential/cookie exposure, unauthorized file transfer, and duplicate or uncertain submissions. Source mitigations include a dedicated headed persistent profile, HTTP(S)-only URL validation, private/local IP checks and request routing, bounded structured observations with snapshot-bound opaque references, password-field exclusion, no model-evaluated JavaScript, conservative action classification, and fail-closed refusal of consequential clicks. These controls are not runtime/security verified; route interception and DNS checks are not a complete network sandbox. Exact submit approvals, upload/download mediation, and agent dispatch remain missing.
 
 Direct local fixture tests exercise selected controls but do not prove end-to-end API/worker enforcement or resistance to DNS rebinding, OS-level network escapes, hostile sites, or all browser crash/replay cases. Consequential clicks fail closed because exact approval is not wired through the existing approval lifecycle. See `TEST_EVIDENCE.md` for tested commands and gaps.
+
+## Phase 7 connected-service threats
+
+OAuth CSRF/replay is mitigated in source by one-time hashed state, a browser nonce, PKCE, and a fixed redirect. Refresh tokens use authenticated encryption with owner/connection binding and a key outside MongoDB; local revocation disables use before provider revocation. Google scope discovery and owner-scoped connection lookups prevent a connection ID from granting cross-owner access. These flows need live callback/refresh/revoke tests.
+
+Email prompt injection remains untrusted data. Bounded MIME parsing and HTML-to-text conversion do not grant tools or policy. Nodemailer constructs headers from validated recipients/subject. Exact raw provider draft fingerprints, approval records, write-ahead send attempts, Sent-folder reconciliation, and no blind retry reduce changed-draft and duplicate-send risk. Attachments are rejected until a Phase 3 authorized-file bridge exists. Google API timeout/reconciliation tests remain unverified.
+
+Calendar writes use deterministic event IDs, prewritten attempts, ETag `If-Match` checks, and readback. Attendee invitations, recurring and all-day writes are rejected. Schedules are durable in Mongo and only create canonical tasks through the existing policy path. Unique occurrence records and no-overlap checks reduce duplicate execution; Redis loss, concurrent worker races, and restart recovery still need runtime fault tests. Monitors keep a baseline and unique match notifications to avoid repeated alerts, but notifications are not delivered through a production channel. External Google data must never be promoted into owner instructions or sent wholesale to the model.

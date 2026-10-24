@@ -1,5 +1,24 @@
 # Test evidence
 
+## Phase 6 gate and component verification — 2026-10-23/24
+
+Environment: Windows PowerShell, Node.js 22.18.0, pnpm 10.25.0. The production WhatsApp Business Platform channel is blocked for this personal-use project under the terms effective September 23, 2026; no live Meta webhook or message was attempted. These checks cover the provider-neutral synthetic channel and regressions only.
+
+| Check | Command | Result | Evidence / limit |
+|---|---|---|---|
+| Official eligibility review | Current WhatsApp Business Platform Terms and Business Messaging Policy (links in `INTEGRATIONS.md`) | BLOCKED_BY_PROVIDER_POLICY | Platform terms prohibit personal use; newer incorporated Meta Terms required login, so older AI-provider clause was not used as the current basis. |
+| Frozen workspace install | `pnpm install --frozen-lockfile` | PASS | Ten workspace projects; lockfile consistent. |
+| Messaging/security unit suite plus Phase 0–5 unit regressions | `pnpm test` | PASS | Final run: 17 files, 59 tests. Signed bytes, forged event, unpaired sender, concurrent duplicate event fixture, explicit UUID controls, notification throttle, accepted/failed/unknown delivery components, and provider gate. No Mongo runtime. The final run used approved outside-sandbox execution after a Windows `spawn EPERM` inside the sandbox. |
+| TypeScript | `pnpm typecheck` | PASS | All workspaces compiled and strict typecheck passed. |
+| Workspace build | `pnpm build` | PASS | All packages and applications built after Phase 6 changes. |
+| ESLint | `pnpm lint` | PASS | Exit 0 after removing an obsolete import from the shared web route. |
+| Browser fixture regression | `pnpm --filter @personal-agent/desktop test:e2e` | PASS | Three Phase 4 Chromium fixture tests passed. |
+| Mongo/Redis integration | `pnpm test:integration` | FAIL / BLOCKED | MongoDB connection failed; three Phase 1 tests skipped. Docker CLI cannot reach Docker Desktop Linux engine named pipe. Shared Mongo command ingestion and delivery indexes were not runtime verified. |
+| Repository formatting | `pnpm format:check` | FAIL | 57 repository files listed, including pre-existing Phase 0–5 files and some touched documents; no repository-wide formatting rewrite performed. Newly added Phase 6 source/test files pass a targeted Prettier check. |
+| Diff whitespace | `git diff --check` | PASS | Exit 0; Windows LF/CRLF warnings only. |
+
+No live sender pairing, remote approval, provider receipt, task notification dispatch, media, or WhatsApp E2E result exists. The fixture ingress has no HTTP route and rejects production runtime.
+
 Environment: Windows PowerShell, Node.js `v22.18.0`, pnpm `10.25.0`, npm `10.9.3`, Docker CLI `28.4.0`; date 2026-10-21. npm is configured with `NPM_CONFIG_OFFLINE=true` and no package metadata is cached. Docker daemon is unavailable.
 
 | Check | Command | Result | Output / limitation |
@@ -184,3 +203,23 @@ The task system now filters model-visible device tools using enabled capabilitie
 | `pnpm format:check` | FAIL | 65 files in the existing broad worktree fail Prettier. New Phase 5 Windows service, registry, helper client, test, demo script, support matrix, and ADRs were formatted separately. |
 | `git diff --check` | PASS | Exit 0; only Git LF/CRLF conversion notices. |
 | Phase 5 secret-pattern scan | PASS | No credential/private-key patterns matched in new Windows adapter/fixture sources; this is a limited pattern scan. |
+
+## Phase 7 evidence — 2026-10-24, Windows development host
+
+Runtime: Node/pnpm workspace and Google client libraries from the pinned lockfile. Google OAuth client/test account environment variables were absent. Docker Desktop was started for this session; an isolated MongoDB replica set was exposed on port 27018 and Redis on port 6379. This does not establish live Google behavior.
+
+| Command/check | Result | Evidence and limit |
+|---|---|---|
+| `pnpm install --frozen-lockfile` | PASS | Lockfile current; no package resolution changes. |
+| `pnpm build` | PASS | Workspace TypeScript and web/desktop builds completed. |
+| `pnpm typecheck` | PASS | Recursive TypeScript checks completed. |
+| `pnpm lint` | PASS | Final ESLint run completed after the scheduler and connector fixes. |
+| `pnpm test` | PASS | Final run: 19 Vitest files, 69 tests including Phase 7 security/timezone/MIME and agent evidence checks. |
+| `pnpm exec vitest run apps/api/test/phase7-security.test.ts` | PASS | 8 tests: authenticated encryption, scope mapping, input/header/attachment/attendee limits, MIME To/Cc/Bcc, DST preview, schedule bounds. |
+| `pnpm --filter @personal-agent/desktop test:e2e` | PASS | 3 controlled Playwright Chromium fixture tests, Phase 4 regression only. |
+| `pnpm test:integration` with isolated replica-set test URIs | PASS | Final run: 2 files, 5 tests against real MongoDB and Redis. Phase 1 auth/task/pause/restart/device-pairing and Phase 7 one-time schedule creation, scheduler restart, canonical task completion, terminal run reconciliation, duplicate occurrence rejection, deferred first recurring run, and disabled-schedule event rejection passed. Initial failures exposed an invalid Phase 1 hand-built test command and strict API schema applied to persisted schedule metadata; both were corrected. |
+| `docker info --format '{{.ServerVersion}}'` | PASS | Docker Desktop engine 28.4.0; isolated test MongoDB `rs0` on port 27018. The owner-local standalone MongoDB on port 27017 was left untouched. |
+| `pnpm format:check` | FAIL | 60 files in the broad pre-existing worktree fail Prettier. Focused Prettier check on Phase 7 API files, changed Phase 1 integration files, and Mongo indexes passed. |
+| `git diff --check` | PASS | No whitespace errors; Git reported CRLF notices. |
+
+**Not executed:** live Google OAuth/refresh/revoke; Gmail search/read/draft/update/approved send; Calendar create/update/delete; provider timeout/reconciliation; a complete recurring occurrence or missed-run/concurrent schedule E2E; condition-monitor provider checks; delivered notifications; Phase 7 dashboard browser session. No mock response is counted as provider success. Phase 7 remains `IN_PROGRESS`.

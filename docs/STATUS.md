@@ -1,7 +1,20 @@
 # Project status
 
-Current phase: **Phase 5 — Desktop Application Control**
-Active task: complete Windows desktop tool acceptance; Phase 3/4 backend dispatch and approval gaps remain
+## Phase 6 remote messaging (2026-10-23)
+
+Overall status: **BLOCKED** for the selected WhatsApp Business Platform channel. Current terms exclude personal use; the owner has not selected another eligible provider. Provider-neutral contracts, signed fixture inbound verification, deterministic control parsing, notification formatting, delivery-state abstractions, and shared web/fixture command ingestion are implemented and unit-tested. No production WhatsApp adapter, webhook, owner-number pairing, live approvals, media handling, provider receipts, or live E2E exists. The fixture is gated to `NODE_ENV=test` and has no HTTP route. See ADR-0018 and `TEST_EVIDENCE.md`.
+
+| Phase 6 item | Status | Evidence / blocker |
+|---|---|---|
+| Eligibility gate | VERIFIED | Current WhatsApp terms and policy reviewed 2026-10-23; personal-use prohibition applies to this project. |
+| Provider-neutral schemas and signed fixture | VERIFIED | Unit tests cover signature, malformed payload, sender denial, and parser. |
+| Shared command ingestion | IMPLEMENTED_UNVERIFIED | Web route and fixture service call one Mongo transaction path; Mongo integration runtime unavailable. |
+| Notification format/throttle/delivery state | IMPLEMENTED_UNVERIFIED | Component tests pass; no production provider or task-event publisher. |
+| Official WhatsApp adapter/live webhook | BLOCKED | Current personal-use restriction; no provider credentials or eligible account. |
+| Live sender pairing/approval/remote controls | BLOCKED | No eligible channel; fixture control execution intentionally unavailable. |
+
+Current phase: **Phase 6 — Remote Messaging** (blocked for WhatsApp Business Platform personal use)
+Active task: preserve the provider-neutral foundation; production remote messaging awaits an owner-selected eligible channel. Phase 3/4/5 gaps remain as recorded below.
 Last updated: 2026-10-23
 
 Statuses follow `AGENTS.md`: `NOT_STARTED`, `IN_PROGRESS`, `IMPLEMENTED_UNVERIFIED`, `VERIFIED`, `BLOCKED`, `DEFERRED_WITH_OWNER_APPROVAL`, `NOT_APPLICABLE_WITH_REASON`.
@@ -90,9 +103,30 @@ Phase 4 is **IMPLEMENTED_UNVERIFIED** overall. Direct Playwright fixture tests p
 | Browser tool registration/dispatch source | IMPLEMENTED_UNVERIFIED | task system, tool registry, desktop worker | typechecked source | no API/queue/gateway/worker E2E |
 | Browser fixture/E2E | IMPLEMENTED_UNVERIFIED | `apps/desktop/e2e/browser.spec.ts` | 3 direct Playwright fixture tests pass | approval, crash/restart, and security matrices incomplete |
 
+## Phase 7 connected services and scheduling (2026-10-24)
+
+Overall status: **IN_PROGRESS**. Source builds and focused security/timezone tests pass. A Google OAuth client, controlled Google account, MongoDB, and Redis were unavailable for live OAuth/provider and durable scheduler verification.
+
+| Phase 7 item | Status | Evidence / gap |
+|---|---|---|
+| OAuth state, PKCE, token encryption, scope mapping, revoke | IMPLEMENTED_UNVERIFIED | Source and crypto/scope tests; no live callback or refresh test. |
+| Gmail search/read, MIME parse, draft/update | IMPLEMENTED_UNVERIFIED | Real Google API methods wired; no controlled Gmail account. |
+| Gmail send exact draft approval and write-ahead | IMPLEMENTED_UNVERIFIED | Source includes provider draft re-fetch and no blind retry; lost-response live test pending. |
+| Outgoing attachments | NOT_STARTED | Rejected by schema until Phase 3 file authorization bridge is implemented. |
+| Calendar list/get/create/update/delete | IMPLEMENTED_UNVERIFIED | Primary calendar, deterministic event IDs, ETag guard; no live account. |
+| Attendees, recurring/all-day Calendar events | NOT_STARTED | Writes fail closed; no invites or notifications. |
+| One-time schedules and duplicate occurrence rejection | VERIFIED | Real MongoDB/Redis integration: scheduler restart, one canonical task, and duplicate event rejection. Scope is the controlled time-command fixture only. |
+| Recurring schedules and general reconciliation | IMPLEMENTED_UNVERIFIED | BullMQ Job Scheduler and Mongo reconciliation code; real integration confirms a new interval schedule does not execute immediately. Full recurring occurrence/recovery E2E pending. |
+| Timezone/DST preview | VERIFIED | Deterministic New York spring/fall tests; actual BullMQ firing not tested. |
+| Missed runs and no overlap | IMPLEMENTED_UNVERIFIED | Source checks exist; restart/concurrency tests pending. |
+| Gmail/Calendar condition polling | IMPLEMENTED_UNVERIFIED | Baseline, bounded polling, seen-state source; no live provider check. |
+| Provider push and delivered notifications | NOT_STARTED | No Google watch/PubSub or eligible Phase 6 production channel. |
+| Connection/schedule dashboard and explicit permissions | IMPLEMENTED_UNVERIFIED | Built React UI and owner routes; schedule permission and creation routes passed real API integration, dashboard browser session pending. |
+| Usage | IMPLEMENTED_UNVERIFIED | Tool-call and schedule-run counts from Mongo; exact Google API-call counts not yet recorded. |
+
 ## Not started
 
-Phase 6 and later product capabilities. Phase 5 is in progress; see the Phase 5 table below. Earlier phase status rows record historical evidence and are not superseded by source changes alone.
+Phase 8 and later product capabilities. Phase 5 remains in progress, Phase 6 is blocked for the selected WhatsApp channel, and Phase 7 remains in progress; see the tables above and below. Earlier phase status rows record historical evidence and are not superseded by source changes alone.
 
 ## Phase 5 status
 

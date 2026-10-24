@@ -1,5 +1,9 @@
 # Personal Agent
 
+## Phase 6 messaging eligibility (2026-10-23)
+
+The current WhatsApp Business Platform terms exclude personal use, so this personal-agent deployment has no production WhatsApp webhook or Cloud API connection. Phase 6 has provider-neutral signed inbound contracts, a test-only fixture transport, deterministic control-command parsing, notification formatting, and a shared command-ingestion path used by web chat. Remote WhatsApp commands, pairing, approvals, and live delivery are **not available**. See [eligibility decision](docs/decisions/ADR-0018-messaging-eligibility-and-channel-boundary.md) and [status](docs/STATUS.md).
+
 ## Phase 5 Windows desktop status (2026-10-23)
 
 The paired Electron worker now contains a Windows UIA/pywinauto adapter behind locally approved application IDs and the existing authenticated tool protocol. A synthetic WinForms window was controlled through the real TypeScript service and Python helper. VS Code 1.140.0 opened a new window on a synthetic workspace and known file, but editor typing/saving was not completed. Windows Notepad's packaged executable differs from its System32 launcher, so the existing owner document was not targeted. Phase 5 remains **IN_PROGRESS**; see [desktop support](docs/DESKTOP_SUPPORT.md) and [test evidence](docs/TEST_EVIDENCE.md).
@@ -65,3 +69,7 @@ The enforced state graph and recovery exception are documented in [Task State Ma
 ## Security
 
 Never commit credentials. `.env` is local and ignored; `.env.example` contains no signing secrets. MongoDB and Redis ports bind to loopback and are intended only for development. Policy remains default-deny except explicit rules. Browser operations are partially implemented and fixture-tested, but full agent-to-worker integration and exact submission approvals are incomplete. Production deployment, messaging, email, calendar, and phone capabilities are not implemented.
+
+## Phase 7 connected services (in progress)
+
+Google OAuth, Gmail and Calendar tool source, explicit connected-service permissions, and Mongo-backed schedule/condition source are present. A controlled one-time schedule and duplicate-event rejection passed against MongoDB and Redis, but no Google OAuth client/test account was available for live provider verification. The dashboard can start incremental Google consent and display connections, permissions, schedules, and pending approvals when infrastructure is configured. Gmail attachments, Calendar attendees/recurrence, Google push, and delivered remote monitor notifications are not supported. See [status](docs/STATUS.md), [integrations](docs/INTEGRATIONS.md), and [runbook](docs/RUNBOOK.md).

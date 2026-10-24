@@ -17,7 +17,7 @@ export type CommandRequest = z.infer<typeof commandRequestSchema>;
 
 export const commandSchema = z.object({
   commandId: z.string().uuid(), ownerId: z.string().uuid(), conversationId: z.string().nullable(),
-  sourceChannel: z.enum(['web', 'desktop', 'telegram', 'whatsapp', 'email', 'api']), sourceEventId: z.string().min(1).max(256),
+  sourceChannel: z.enum(['web', 'desktop', 'telegram', 'whatsapp', 'email', 'api', 'schedule']), sourceEventId: z.string().min(1).max(256),
   originalText: z.string().min(1).max(2_000), normalizedIntent: z.enum(['SYSTEM_GET_TIME', 'AI_ORCHESTRATE', 'UNSUPPORTED']),
   receivedAt: z.date(), timezone: z.string().min(1).max(100), attachmentReferences: z.array(z.string().uuid()),
   requestedDeviceId: z.string().uuid().nullable(),

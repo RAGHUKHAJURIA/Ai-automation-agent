@@ -1,5 +1,9 @@
 # Development runbook
 
+## Phase 6 messaging gate
+
+The WhatsApp Business Platform is disabled for this personal-use project under the terms checked 2026-10-23. Do not configure a Cloud API number/token or expose a fixture webhook. Unit checks for the provider-neutral package run with `pnpm test`; the fixture adapter is only instantiated by tests. A future eligible provider requires an updated ADR, current official webhook authentication review, owner sender pairing, production configuration, and live end-to-end acceptance before enablement.
+
 ## Phase 5 Windows helper and app approval
 
 1. On the Windows desktop, create the local helper environment: `py -3.10 -m venv packages/desktop-adapters/windows/.venv` and `packages/desktop-adapters/windows/.venv/Scripts/python.exe -m pip install -r packages/desktop-adapters/windows/requirements.txt`. Do not install helper packages globally.
@@ -64,3 +68,14 @@ These source-level operations are not yet runtime-verified. Do not use personal 
 Playwright uses a dedicated headed Chromium persistent profile in Electron application data. Install dependencies with `pnpm install --frozen-lockfile`, then install its matching Chromium using `pnpm --filter @personal-agent/desktop exec playwright install chromium`. Run the local fixture suite with `pnpm --filter @personal-agent/desktop test:e2e`. Do not point the profile to Chrome/Edge user data and do not copy browser storage state into prompts or logs. Resetting the automation profile removes site login state; use the desktop UI's owner-confirmed reset action. For manual sign-in, focus the visible Personal Agent browser and enter credentials/MFA directly; do not submit them through agent chat. CAPTCHA and security challenge detection is heuristic; full task resumption after takeover is not verified. Agent-to-worker end-to-end dispatch remains unverified; do not use for real submissions.
 
 Consequential browser submissions are currently blocked. Do not use for real submissions.
+
+## Phase 7 Google setup and schedules (unverified operations)
+
+1. In Google Cloud, create/configure a Google Auth Platform project and web OAuth client. Enable the Gmail API and Calendar API. For this local development setup register the exact callback `http://127.0.0.1:3001/api/connections/google/callback`; use the same value for `GOOGLE_OAUTH_REDIRECT_URI`. HTTPS is required outside loopback development. Configure a controlled test audience/account before wider OAuth review.
+2. Set `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`, and a random base64-encoded 32-byte `GOOGLE_TOKEN_ENCRYPTION_KEY` in the ignored backend environment. Keep the key separate from MongoDB and back it up securely. The current code has no automated key rotation; losing the key makes stored refresh tokens unreadable.
+3. Start MongoDB replica set, Redis, API, web app, and the existing task worker. The task worker also starts the schedule worker and reconciles enabled Mongo schedules into BullMQ.
+4. In the authenticated dashboard, enable only the needed Phase 7 permissions, then connect Gmail read/compose or Calendar read/write incrementally. Check `/api/connections` for the actual account, scopes, and health. Do not use a production mailbox for first acceptance.
+5. Create a schedule in the dashboard, preview upcoming runs, inspect `schedules` and `schedule_runs` in Mongo, and verify the newly created canonical command/task. Disable or delete a schedule to stop future runs. A task already running must be cancelled separately.
+6. For `REAUTH_REQUIRED`, reconnect through the dashboard. Revocation disables local use and tries Google token revocation. Do not restore revoked encrypted token records. A send attempt in `OUTCOME_UNKNOWN` requires a review of Gmail Sent and `email_send_attempts` before any new send.
+
+The current adapter rejects outgoing attachments, attendee invitations, recurring/all-day Google Calendar writes, and provider push. Condition triggers are stored as pending `notification_events`; there is no eligible Phase 6 production delivery channel. Controlled MongoDB/Redis one-time scheduler acceptance passed; live Google acceptance has not yet been recorded.

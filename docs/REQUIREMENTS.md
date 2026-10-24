@@ -1,5 +1,9 @@
 # Requirements inventory
 
+## Phase 6 traceability update (2026-10-23)
+
+REQ-MSG-001 remains blocked for the current WhatsApp Business Platform personal-use deployment. Shared command ingestion, signed synthetic message normalization, deterministic control parsing, and notification contracts have implementation and unit evidence. There is no eligible production provider adapter, live webhook, owner sender pairing, or remote command result; these remain open requirements.
+
 ## Phase 5 traceability update (2026-10-23)
 
 The Windows helper, local app approval, typed tool descriptors, process/window identity checks, foreground guard, UIA control references, literal text, fixture-only click, scoped screenshot, takeover latch, cancellation, and persistent emergency stop have source and controlled fixture evidence. VS Code workspace/known-file opening has direct Windows evidence. Production owner-command-to-worker dispatch, exact consequential desktop approval, editor save verification, second real application workflow, visual coordinate fallback, cross-monitor behavior, and complete crash/restart reconciliation remain open requirements. No Phase 5 exit criterion is waived by the fixture result.
@@ -28,7 +32,7 @@ High-level traceability derived from `AGENTS.md`. Product requirements remain ac
 | REQ-DESKTOP-001 | Selected desktop supports a paired, revocable worker and scoped files | Sections 3.4, 5, 11 | 3 | IN_PROGRESS | Pair, execute, revoke, reconnect tests on approved OS; require local roots, worker dispatch, and target-machine verification |
 | REQ-DESKTOP-002 | Local permissions, authenticated worker transport, and emergency stop constrain desktop execution | Sections 5, 9, 12 | 3 | IN_PROGRESS | Target-machine tests for owner/device binding, root/operation checks, cancellation, durable local stop, and restart |
 | REQ-BROWSER-001 | Browser workflows use isolated supported automation and verify results | Sections 5, 12 | 4 | IMPLEMENTED_UNVERIFIED | Direct fixture workflows pass for selected actions; end-to-end dispatch and exact submission approvals remain incomplete |
-| REQ-MSG-001 | One eligible owner-approved remote messaging route authenticates events | Sections 3, 5, 23 | 6 | NOT_STARTED | Controlled end-to-end send/replay tests |
+| REQ-MSG-001 | One eligible owner-approved remote messaging route authenticates events | Sections 3, 5, 23 | 6 | BLOCKED | Current WhatsApp Business Platform personal-use restriction; owner has not selected another eligible channel |
 | REQ-SERVICE-001 | Owner-selected email, calendar, and storage integrations use scoped authorization | Sections 3, 18, 21 | 7 | NOT_STARTED | Connector, revoke, and side-effect verification |
 | REQ-JOBS-001 | Job application workflows use verified owner facts and evidence-backed submission tracking | Section 19 | 8 | NOT_STARTED | Fixture flow, truthfulness and duplicate controls |
 | REQ-PHONE-001 | Selected phone platform provides only declared, verified supported actions | Sections 3.4, 17 | 9 | NOT_STARTED | On-device action and revocation tests |
@@ -37,3 +41,7 @@ High-level traceability derived from `AGENTS.md`. Product requirements remain ac
 ## Current evidence
 
 No item is marked VERIFIED yet. Dependency resolution is blocked by offline package access and no lockfile exists; Docker runtime checks are blocked by the unavailable daemon. Detailed commands and results are in `TEST_EVIDENCE.md`.
+
+## Phase 7 requirements tracking (2026-10-24)
+
+Google OAuth state/PKCE and encrypted token storage, bounded Gmail search/read/drafts/send source, primary Calendar read/writes, owner-managed permissions, schedule creation, interval/wall-time recurrence, and Gmail/Calendar condition polling are `IMPLEMENTED_UNVERIFIED` pending live provider and Mongo/Redis tests. DST preview is unit-tested. Authorized attachments, attendee invitations, recurring/all-day Calendar events, push subscriptions, delivered monitor notifications, exact Google API-call accounting, full schedule editing, and live Google verification are `NOT_STARTED` or incomplete. Phase 7 remains `IN_PROGRESS`; the earlier historical evidence note above does not represent current dependency installation status.

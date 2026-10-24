@@ -1,5 +1,9 @@
 # Capabilities
 
+## Phase 6 messaging
+
+`@personal-agent/messaging` provides validated inbound/outbound contracts, a signed **test-only** adapter, deterministic command parsing, progress filtering, and a delivery-state interface. The API web command route and test-channel ingress share canonical command persistence. No production remote messaging provider is enabled, and no WhatsApp capability is advertised.
+
 ## Phase 5 Windows desktop capability status
 
 The source registers `desktop.list_windows`, `desktop.launch_app`, `desktop.inspect_window`, `desktop.focus_window`, `desktop.type_text`, `desktop.click_control`, `desktop.press_key`, `desktop.hotkey`, and `desktop.capture_window`. A worker advertises them only after helper ping succeeds. Actual action scope is narrower: app launch uses a local approved executable and typed VS Code workspace/file modes; text input is limited to fixture/Notepad edit controls and Character Map search; click is limited to the synthetic fixture's `Update status` button and Character Map's Advanced view/Search controls; hotkey is limited to VS Code Ctrl+P. A real WinForms fixture passed direct service tests. Character Map was directly exercised but its search-button result was not independently established. Full authenticated owner-command-to-worker execution and a complete VS Code editor workflow are not verified. No generic coordinate click, scroll, shell, arbitrary Python, clipboard read, or cloud vision tool is available.
@@ -48,11 +52,15 @@ These are implementation claims from source inspection only. Pairing, transport,
 
 Fixture-verified paths are limited to the named test cases. Do not infer compatibility with arbitrary websites or production accounts. Overall Phase 4 remains `IMPLEMENTED_UNVERIFIED`.
 
-## Not yet implemented (Phase 5+)
+## Remaining capabilities
 
-- Desktop application automation and fully integrated browser task execution/approval (browser adapter is described above).
-- Messaging, email, calendar, or phone control.
+- Complete desktop application workflows and fully integrated browser task execution/approval (source and fixture limits are described above).
+- Production remote messaging, email, calendar, or phone control.
 - Job application preparation or submission.
 - Production deployment, scheduling, memory, and vector search.
 
 No runtime behavior is marked verified until the checks in `TEST_EVIDENCE.md` pass.
+
+## Phase 7 source capabilities (not live verified)
+
+The registry includes owner-scoped `email.search`, `email.read`, `email.draft`, `email.update_draft`, `email.send`, `calendar.list_events`, `calendar.get_event`, `calendar.create_event`, `calendar.update_event`, `calendar.delete_event`, and `tasks.schedule`. Agent availability requires an actual connected scope and owner policy. Sending and Calendar writes require fresh approval. Gmail drafts are text-only and Calendar writes support timed primary-calendar events without attendees or recurrence. No Google account was available, so provider tools remain `IMPLEMENTED_UNVERIFIED`. Controlled MongoDB/Redis tests verified one-time schedule dispatch and duplicate rejection. Schedule/monitor source supports one-time, interval and wall-time recurrence plus `NEW_EMAIL_MATCH` and `CALENDAR_EVENT_CHANGED` polling. Monitor delivery remains pending because Phase 6 has no production channel.

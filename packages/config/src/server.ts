@@ -29,6 +29,10 @@ const serverConfigSchema = z.object({
   AI_PROVIDER: z.preprocess((value) => value === '' ? undefined : value, z.enum(['openai']).optional()),
   AI_MODEL: z.preprocess((value) => value === '' ? undefined : value, z.string().min(1).max(128).optional()),
   AI_API_KEY: z.preprocess((value) => value === '' ? undefined : value, z.string().min(1).optional()),
+  GOOGLE_OAUTH_CLIENT_ID: z.preprocess((value) => value === '' ? undefined : value, z.string().min(10).optional()),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.preprocess((value) => value === '' ? undefined : value, z.string().min(8).optional()),
+  GOOGLE_OAUTH_REDIRECT_URI: z.preprocess((value) => value === '' ? undefined : value, z.string().url().optional()),
+  GOOGLE_TOKEN_ENCRYPTION_KEY: z.preprocess((value) => value === '' ? undefined : value, z.string().optional()),
   AI_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
   AI_MAX_RETRIES: z.coerce.number().int().min(0).max(2).default(1),
   AGENT_MAX_STEPS: z.coerce.number().int().min(1).max(20).default(8),
@@ -77,6 +81,15 @@ export function parseServerConfig(environment: NodeJS.ProcessEnv): ServerConfig 
   }
   if (result.data.AI_API_KEY && (!result.data.AI_PROVIDER || !result.data.AI_MODEL)) {
     throw new Error('Invalid server configuration: AI_API_KEY requires AI_PROVIDER and AI_MODEL');
+  }
+  const googleFields = [result.data.GOOGLE_OAUTH_CLIENT_ID, result.data.GOOGLE_OAUTH_CLIENT_SECRET, result.data.GOOGLE_OAUTH_REDIRECT_URI, result.data.GOOGLE_TOKEN_ENCRYPTION_KEY];
+  if (googleFields.some(Boolean) && !googleFields.every(Boolean)) throw new Error('Invalid server configuration: Google OAuth requires client ID, client secret, exact redirect URI, and token encryption key');
+  if (googleFields.every(Boolean)) {
+    const key = Buffer.from(result.data.GOOGLE_TOKEN_ENCRYPTION_KEY!, 'base64');
+    if (key.length !== 32 || key.toString('base64') !== result.data.GOOGLE_TOKEN_ENCRYPTION_KEY) throw new Error('Invalid server configuration: GOOGLE_TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key');
+    const redirect = new URL(result.data.GOOGLE_OAUTH_REDIRECT_URI!);
+    if (!redirect.pathname.endsWith('/api/connections/google/callback') || redirect.search || redirect.hash) throw new Error('Invalid server configuration: Google redirect URI must be the fixed callback path');
+    if (redirect.protocol !== 'https:' && !(result.data.NODE_ENV !== 'production' && redirect.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(redirect.hostname))) throw new Error('Invalid server configuration: Google redirect URI must use HTTPS (loopback HTTP is development-only)');
   }
   if (result.data.DEVICE_HEARTBEAT_TIMEOUT_MS <= result.data.DEVICE_HEARTBEAT_INTERVAL_MS) {
     throw new Error('Invalid server configuration: DEVICE_HEARTBEAT_TIMEOUT_MS must exceed DEVICE_HEARTBEAT_INTERVAL_MS');

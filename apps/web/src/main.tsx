@@ -9,6 +9,9 @@ type Task = { taskId: string; goal: string; status: string; createdAt: string; u
 type Approval = { approvalId: string; taskId: string; actionSummary: string; expiresAt: string };
 type Device = { deviceId: string; displayName: string; platform: string; architecture: string; workerVersion: string; connectionState: 'ONLINE' | 'OFFLINE' | 'REVOKED'; lastHeartbeatAt?: string | null; capabilities: Array<{ name: string; enabled: boolean }> };
 type PairingRequest = { pairingRequestId: string; code: string; expiresAt: string };
+type GoogleConnection = { connectionId: string; displayEmail: string; status: string; capabilities: string[]; grantedScopes: string[]; lastHealthyAt?: string; lastError?: string };
+type SavedSchedule = { scheduleId: string; name: string; kind: string; enabled: boolean; revision: number; timezone: string; nextRunAt?: string; lastRunAt?: string; lastOutcome?: string; source?: { type: string }; lastCheckedAt?: string; lastTriggeredAt?: string };
+const phase7Tools = ['email.search', 'email.read', 'email.draft', 'email.update_draft', 'email.send', 'calendar.list_events', 'calendar.get_event', 'calendar.create_event', 'calendar.update_event', 'calendar.delete_event', 'tasks.schedule'] as const;
 let accessToken: string | undefined;
 let refreshPromise: Promise<boolean> | undefined;
 const apiBase = VITE_API_BASE_URL.replace(/\/$/, '');
@@ -46,6 +49,16 @@ function App() {
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [pairingRequest, setPairingRequest] = useState<PairingRequest | null>(null);
+  const [connections, setConnections] = useState<GoogleConnection[]>([]);
+  const [googleConfigured, setGoogleConfigured] = useState(false);
+  const [schedules, setSchedules] = useState<SavedSchedule[]>([]);
+  const [scheduleName, setScheduleName] = useState('');
+  const [scheduleGoal, setScheduleGoal] = useState('');
+  const [scheduleKind, setScheduleKind] = useState<'ONE_TIME' | 'RECURRING'>('ONE_TIME');
+  const [scheduleTime, setScheduleTime] = useState('');
+  const [scheduleIntervalMinutes, setScheduleIntervalMinutes] = useState('60');
+  const [schedulePreview, setSchedulePreview] = useState<string[]>([]);
+  const [enabledPhase7Tools, setEnabledPhase7Tools] = useState<string[]>([]);
   const [command, setCommand] = useState('');
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('Restoring session…');
@@ -80,15 +93,89 @@ function App() {
     setDevices(result.devices);
   }, []);
 
+  const loadConnections = useCallback(async () => {
+    const response = await apiRequest('/api/connections');
+    if (!response.ok) return;
+    const result = (await response.json()) as { configured: boolean; connections: GoogleConnection[] };
+    setConnections(result.connections); setGoogleConfigured(result.configured);
+  }, []);
+
+  const loadSchedules = useCallback(async () => {
+    const response = await apiRequest('/api/schedules');
+    if (!response.ok) return;
+    setSchedules(((await response.json()) as { schedules: SavedSchedule[] }).schedules);
+  }, []);
+
+  const loadPhase7Permissions = useCallback(async () => {
+    const response = await apiRequest('/api/phase7/permissions');
+    if (!response.ok) return;
+    const result = (await response.json()) as { tools: Array<{ name: string; enabled: boolean }> };
+    setEnabledPhase7Tools(result.tools.filter((tool) => tool.enabled).map((tool) => tool.name));
+  }, []);
+
   useEffect(() => { void loadSession(); }, [loadSession]);
   useEffect(() => {
     if (!owner) return;
     void loadTasks();
     void loadApprovals();
     void loadDevices();
+    void loadConnections();
+    void loadSchedules();
+    void loadPhase7Permissions();
     const timer = window.setInterval(() => { void loadTasks(); void loadApprovals(); void loadDevices(); }, 2_000);
     return () => window.clearInterval(timer);
-  }, [owner, loadTasks, loadApprovals, loadDevices]);
+  }, [owner, loadTasks, loadApprovals, loadDevices, loadConnections, loadSchedules, loadPhase7Permissions]);
+
+  async function savePhase7Permissions() {
+    const response = await apiRequest('/api/phase7/permissions', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabledTools: enabledPhase7Tools }) });
+    setMessage(response.ok ? 'Connected-service permissions saved. Consequential actions still need exact approval.' : 'Permissions could not be saved.');
+    await loadPhase7Permissions();
+  }
+
+  async function connectGoogle(capabilities: string[]) {
+    const response = await apiRequest('/api/connections/google/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ capabilities }) });
+    if (!response.ok) { setMessage('Google connection could not start. Check server configuration.'); return; }
+    const result = (await response.json()) as { authorizationUrl: string };
+    window.location.assign(result.authorizationUrl);
+  }
+
+  async function revokeGoogle(connectionId: string) {
+    const response = await apiRequest(`/api/connections/${connectionId}/revoke`, { method: 'POST' });
+    setMessage(response.ok ? 'Google connection revoked locally.' : 'Connection revocation failed.');
+    await loadConnections();
+  }
+
+  function schedulePayload() {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const common = { name: scheduleName, timezone, command: { goal: scheduleGoal }, missedRunPolicy: 'SKIP' };
+    return scheduleKind === 'ONE_TIME' ? { ...common, kind: 'ONE_TIME', runAt: new Date(scheduleTime).toISOString() } : { ...common, kind: 'RECURRING', recurrence: { mode: 'INTERVAL', everyMs: Number(scheduleIntervalMinutes) * 60_000 } };
+  }
+
+  async function previewSchedule() {
+    if (scheduleKind === 'ONE_TIME' && !scheduleTime) return;
+    const response = await apiRequest('/api/schedules/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(schedulePayload()) });
+    if (!response.ok) { setMessage('Schedule preview is invalid.'); return; }
+    setSchedulePreview(((await response.json()) as { nextRuns: string[] }).nextRuns);
+  }
+
+  async function createSchedule(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const response = await apiRequest('/api/schedules', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(schedulePayload()) });
+    setMessage(response.ok ? 'Schedule created.' : 'Schedule not created. Check policy and connection settings.');
+    if (response.ok) { setScheduleName(''); setScheduleGoal(''); setSchedulePreview([]); await loadSchedules(); }
+  }
+
+  async function changeSchedule(schedule: SavedSchedule, enabled: boolean) {
+    const response = await apiRequest(`/api/schedules/${schedule.scheduleId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ revision: schedule.revision, enabled }) });
+    setMessage(response.ok ? 'Schedule updated.' : 'Schedule changed elsewhere. Reload and try again.');
+    await loadSchedules();
+  }
+
+  async function deleteSchedule(scheduleId: string) {
+    const response = await apiRequest(`/api/schedules/${scheduleId}`, { method: 'DELETE' });
+    setMessage(response.ok ? 'Schedule removed from future execution.' : 'Schedule removal failed.');
+    await loadSchedules();
+  }
 
   async function createPairing() {
     const response = await apiRequest('/api/devices/pairing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
@@ -185,6 +272,18 @@ function App() {
         <button type="submit">Submit command</button>
       </form>
       <p role="status">{message}</p>
+      <h2>Google account</h2>
+      <p>{googleConfigured ? 'Google OAuth is configured on the server.' : 'Google OAuth is not configured on the server.'}</p>
+      {googleConfigured && <div><button type="button" onClick={() => void connectGoogle(['gmail.read'])}>Connect Gmail read</button><button type="button" onClick={() => void connectGoogle(['gmail.compose'])}>Enable Gmail drafts and send</button><button type="button" onClick={() => void connectGoogle(['calendar.read'])}>Connect Calendar read</button><button type="button" onClick={() => void connectGoogle(['calendar.write'])}>Enable Calendar writes</button></div>}
+      {connections.length === 0 ? <p>No Google account connected.</p> : <ul>{connections.map((connection) => <li key={connection.connectionId}><strong>{connection.displayEmail}</strong> · {connection.status}<p>Capabilities: {connection.capabilities.join(', ') || 'None'} · Granted scopes: {connection.grantedScopes.join(', ') || 'None'}</p><p>Last healthy: {connection.lastHealthyAt ? new Date(connection.lastHealthyAt).toLocaleString() : 'Not checked'} {connection.lastError ? `· ${connection.lastError}` : ''}</p>{connection.status !== 'REVOKED' && <button type="button" onClick={() => void revokeGoogle(connection.connectionId)}>Revoke</button>}</li>)}</ul>}
+      <h2>Schedules</h2>
+      <h3>Connected-service permissions</h3>
+      <p>Enable only tools you want the agent to use. Sends and Calendar changes still require exact approval.</p>
+      <div>{phase7Tools.map((name) => <label key={name}><input type="checkbox" checked={enabledPhase7Tools.includes(name)} onChange={(event) => setEnabledPhase7Tools((current) => event.target.checked ? [...current, name] : current.filter((entry) => entry !== name))} />{name}</label>)}</div>
+      <button type="button" onClick={() => void savePhase7Permissions()}>Save connected-service permissions</button>
+      <form onSubmit={(event) => void createSchedule(event)}><label>Name<input value={scheduleName} maxLength={120} required onChange={(event) => setScheduleName(event.target.value)} /></label><label>Task goal<input value={scheduleGoal} maxLength={4000} required onChange={(event) => setScheduleGoal(event.target.value)} /></label><label>Kind<select value={scheduleKind} onChange={(event) => setScheduleKind(event.target.value as 'ONE_TIME' | 'RECURRING')}><option value="ONE_TIME">One time</option><option value="RECURRING">Recurring interval</option></select></label>{scheduleKind === 'ONE_TIME' ? <label>Run at<input type="datetime-local" value={scheduleTime} required onChange={(event) => setScheduleTime(event.target.value)} /></label> : <label>Every minutes<input type="number" min="1" max="43200" value={scheduleIntervalMinutes} required onChange={(event) => setScheduleIntervalMinutes(event.target.value)} /></label>}<p>Timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone} · Missed runs: skip</p><button type="button" onClick={() => void previewSchedule()}>Preview next runs</button><button type="submit">Create schedule</button></form>
+      {schedulePreview.length > 0 && <ol>{schedulePreview.map((run) => <li key={run}>{new Date(run).toLocaleString()}</li>)}</ol>}
+      {schedules.length === 0 ? <p>No schedules yet.</p> : <ul>{schedules.map((schedule) => <li key={schedule.scheduleId}><strong>{schedule.name}</strong> · {schedule.kind} · {schedule.enabled ? 'Enabled' : 'Disabled'}<p>Next: {schedule.nextRunAt ? new Date(schedule.nextRunAt).toLocaleString() : 'Unknown'} · Last: {schedule.lastRunAt ? new Date(schedule.lastRunAt).toLocaleString() : 'Never'} · Outcome: {schedule.lastOutcome ?? 'None'}</p>{schedule.source && <p>Condition: {schedule.source.type} · Checked: {schedule.lastCheckedAt ? new Date(schedule.lastCheckedAt).toLocaleString() : 'Never'} · Triggered: {schedule.lastTriggeredAt ? new Date(schedule.lastTriggeredAt).toLocaleString() : 'Never'}</p>}<button type="button" onClick={() => void changeSchedule(schedule, !schedule.enabled)}>{schedule.enabled ? 'Disable' : 'Enable'}</button><button type="button" onClick={() => void deleteSchedule(schedule.scheduleId)}>Delete</button></li>)}</ul>}
       <h2>Paired computers</h2>
       <button type="button" onClick={() => void createPairing()}>Create pairing request</button>
       {pairingRequest && <section className="pairing-code"><p>One-time code (shown only now): <strong>{pairingRequest.code}</strong></p><p>Request ID: <code>{pairingRequest.pairingRequestId}</code></p><p>Expires {new Date(pairingRequest.expiresAt).toLocaleString()}</p><button type="button" onClick={() => setPairingRequest(null)}>Hide code</button></section>}

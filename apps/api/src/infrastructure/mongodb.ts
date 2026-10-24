@@ -15,14 +15,57 @@ export function mongoClient(): MongoClient {
 
 export async function initializeIndexes(): Promise<void> {
   const database = mongoDatabase();
-  const indexes: Array<[string, Array<Record<string, 1 | -1>>, { unique?: boolean; expireAfterSeconds?: number; name?: string }?]> = [
+  const indexes: Array<
+    [
+      string,
+      Array<Record<string, 1 | -1>>,
+      { unique?: boolean; expireAfterSeconds?: number; name?: string }?,
+    ]
+  > = [
     ['owners', [{ normalizedEmail: 1 }], { unique: true, name: 'owners_email_unique' }],
     ['auth_sessions', [{ sessionId: 1 }], { unique: true }],
     ['auth_sessions', [{ ownerId: 1, expiresAt: 1 }]],
     ['auth_sessions', [{ expiresAt: 1 }], { expireAfterSeconds: 0, name: 'sessions_expiry' }],
     ['commands', [{ commandId: 1 }], { unique: true }],
-    ['commands', [{ ownerId: 1, sourceChannel: 1, sourceEventId: 1 }], { unique: true, name: 'command_idempotency' }],
+    [
+      'commands',
+      [{ ownerId: 1, sourceChannel: 1, sourceEventId: 1 }],
+      { unique: true, name: 'command_idempotency' },
+    ],
     ['commands', [{ ownerId: 1, receivedAt: -1 }]],
+    [
+      'messaging_identities',
+      [{ provider: 1, senderId: 1 }],
+      { unique: true, name: 'messaging_sender_unique' },
+    ],
+    ['messaging_identities', [{ ownerId: 1, enabled: 1 }]],
+    [
+      'messaging_deliveries',
+      [{ notificationId: 1 }],
+      { unique: true, name: 'messaging_notification_unique' },
+    ],
+    ['messaging_deliveries', [{ provider: 1, providerMessageId: 1 }]],
+    ['messaging_deliveries', [{ ownerId: 1, createdAt: -1 }]],
+    ['connections', [{ connectionId: 1 }], { unique: true, name: 'connection_id_unique' }],
+    [
+      'connections',
+      [{ ownerId: 1, provider: 1, providerAccountId: 1 }],
+      { unique: true, name: 'connection_account_unique' },
+    ],
+    ['oauth_attempts', [{ attemptId: 1 }], { unique: true, name: 'oauth_attempt_id_unique' }],
+    ['oauth_attempts', [{ stateHash: 1 }], { unique: true, name: 'oauth_state_unique' }],
+    ['oauth_attempts', [{ expiresAt: 1 }], { expireAfterSeconds: 0, name: 'oauth_attempt_expiry' }],
+    ['email_refs', [{ emailRef: 1 }], { unique: true }],
+    ['email_refs', [{ ownerId: 1, connectionId: 1, providerMessageId: 1 }], { unique: true }],
+    ['email_drafts', [{ draftRef: 1 }], { unique: true }],
+    ['email_send_attempts', [{ ownerId: 1, idempotencyKey: 1 }], { unique: true }],
+    ['calendar_refs', [{ eventRef: 1 }], { unique: true }],
+    ['calendar_refs', [{ ownerId: 1, connectionId: 1, providerEventId: 1 }], { unique: true }],
+    ['calendar_write_attempts', [{ ownerId: 1, idempotencyKey: 1 }], { unique: true }],
+    ['schedules', [{ scheduleId: 1 }], { unique: true }],
+    ['schedules', [{ ownerId: 1, enabled: 1 }]],
+    ['schedule_runs', [{ scheduleId: 1, occurrenceKey: 1 }], { unique: true }],
+    ['notification_events', [{ ownerId: 1, scheduleId: 1, match: 1 }], { unique: true }],
     ['tasks', [{ taskId: 1 }], { unique: true }],
     ['tasks', [{ commandId: 1 }]],
     ['tasks', [{ ownerId: 1, createdAt: -1 }]],
@@ -51,15 +94,28 @@ export async function initializeIndexes(): Promise<void> {
     ['model_usage', [{ usageId: 1 }], { unique: true }],
     ['model_usage', [{ ownerId: 1, createdAt: -1 }]],
     ['model_usage', [{ taskId: 1, createdAt: -1 }]],
-    ['model_usage', [{ taskId: 1, iterationNumber: 1 }], { unique: true, name: 'usage_task_iteration_unique' }],
+    [
+      'model_usage',
+      [{ taskId: 1, iterationNumber: 1 }],
+      { unique: true, name: 'usage_task_iteration_unique' },
+    ],
     ['devices', [{ deviceId: 1 }], { unique: true, name: 'device_id_unique' }],
     ['devices', [{ ownerId: 1, createdAt: -1 }]],
-    ['devices', [{ publicKeyFingerprint: 1 }], { unique: true, name: 'device_key_fingerprint_unique' }],
-    ['pairing_requests', [{ pairingRequestId: 1 }], { unique: true, name: 'pairing_request_id_unique' }],
+    [
+      'devices',
+      [{ publicKeyFingerprint: 1 }],
+      { unique: true, name: 'device_key_fingerprint_unique' },
+    ],
+    [
+      'pairing_requests',
+      [{ pairingRequestId: 1 }],
+      { unique: true, name: 'pairing_request_id_unique' },
+    ],
     ['pairing_requests', [{ ownerId: 1, createdAt: -1 }]],
     ['pairing_requests', [{ expiresAt: 1 }]],
   ];
-  for (const [collection, keys, options] of indexes) await database.collection(collection).createIndex(Object.assign({}, ...keys), options);
+  for (const [collection, keys, options] of indexes)
+    await database.collection(collection).createIndex(Object.assign({}, ...keys), options);
 }
 
 export async function connectMongo(uri: string): Promise<void> {

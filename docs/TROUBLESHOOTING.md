@@ -1,5 +1,12 @@
 # Troubleshooting
 
+## Phase 6 messaging
+
+- **WhatsApp commands do not arrive:** no WhatsApp Business Platform adapter or webhook is enabled. Its current terms exclude this personal-use deployment.
+- **Fixture ingress rejected:** the synthetic adapter is test-only (`NODE_ENV=test`), requires a valid HMAC over exact raw bytes, and an enabled owner-bound test sender. It is not a production transport.
+- **Duplicate fixture message:** the canonical command source key is unique; a duplicate should resolve to the existing task when MongoDB is available. Do not create a second task.
+- **Notification outcome unknown:** provider acceptance and actual delivery are distinct. Inspect the durable delivery record before retrying; no production delivery worker or receipt handler exists yet.
+
 ## Phase 5 desktop automation
 
 - **Helper not ready:** confirm Python 3.10 local venv and pinned requirements, then run the helper protocol tests. `WINDOWS_HELPER_PYTHON_PATH` may point to a trusted absolute local venv interpreter. Rebuild desktop so the helper script is copied to `dist/windows`.
@@ -61,3 +68,16 @@ If dependencies were unavailable at API startup, `/health/live` may stay healthy
 - Login/challenge detection is heuristic. Complete authentication manually in the visible dedicated browser; never provide credentials to agent chat. CAPTCHA is not bypassed.
 
 Fixture E2E covers a limited controlled site; arbitrary websites and full API/worker task execution are unverified.
+
+## Phase 7 Google and scheduling
+
+- `GOOGLE_NOT_CONFIGURED`: set all four Google OAuth/encryption settings in the backend environment; never paste secrets into the dashboard.
+- `OAUTH_STATE_INVALID`: state/callback cookie is missing, expired, or already consumed. Start a fresh connection in the same browser; confirm the exact callback URI and cookie host.
+- `OAUTH_REFRESH_TOKEN_MISSING`: Google did not return an offline refresh token. Reconnect with consent and verify the OAuth client configuration.
+- `GOOGLE_SCOPE_DENIED`: the connected account did not grant that capability; enable it through a new incremental consent request. A requested scope is not proof of grant.
+- `GOOGLE_REAUTH_REQUIRED`: the refresh credential was rejected or revoked; reconnect. Scheduled tasks must not reuse the old credential.
+- `DRAFT_CHANGED`: the Gmail draft differs from the approved fingerprint. Review and approve the new draft; do not send under the old approval.
+- `GOOGLE_SEND_OUTCOME_UNKNOWN`: inspect Gmail Sent and the write-ahead attempt. Do not blindly resend.
+- `EVENT_CHANGED`: Calendar ETag changed; fetch the event again and review. Attendee or recurring event writes are intentionally unsupported.
+- Missing/duplicate schedule: inspect Mongo `schedules`, `schedule_runs`, and BullMQ Job Schedulers. Mongo is authoritative. Restarting the worker reconciles enabled entries, while the unique occurrence index prevents duplicate command creation. Do not manually replay a consequential task.
+- Monitor does not notify: inspect the monitor baseline and `notification_events`. Phase 6 has no production channel, so a pending event is not proof of delivery. Google push watches are not implemented.
